@@ -1,0 +1,77 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+
+<dom-module id="item-form">
+    <template>
+        <style is="custom-style">
+            :root {
+                /* Label and underline color when the input is not focused */
+                --paper-input-container-color: var(--paper-grey-500);
+
+                /* Label and underline color when the input is focused */
+                --paper-input-container-focus-color: var(--paper-teal-500);
+
+                /* Label and underline color when the input is invalid */
+                /*--paper-input-container-invalid-color: green;*/
+
+                /* Input foreground color */
+                /*--paper-input-container-input-color: black;*/
+            }
+
+            #form {
+
+            }
+
+            .file-upload {
+                margin-top: 20px;
+            }
+        </style>
+        <form id="form" method="post" action="/form/handler">
+            <div class="card-content">
+                <template is="dom-if" if="{{!isDeleteForm}}">
+                    <paper-input label="Title" autofocus required></paper-input>
+                    <paper-input label="Description" required></paper-input>
+                    <paper-dropdown-menu label="Category"></paper-dropdown-menu>
+                    <div class="file-upload">
+                        <file-upload target="/path/to/destination">Choose image</file-upload>
+                    </div>
+                </template>
+                <template is="dom-if" if="{{isDeleteForm}}">
+                    Are you sure you want to delete this item ?
+                </template>
+            </div>
+            <div class="card-actions">
+                <paper-button on-click="notifySubmitSuccess">Submit</paper-button>
+            </div>
+        </form>
+    </template>
+    <script>
+        Polymer({
+            is: "item-form",
+
+            listeners: {
+                'form.iron-form-response': 'notifySubmitSuccess'
+            },
+
+            properties: {
+                action: String,
+                isCreateForm: {
+                    type: Boolean,
+                    value: false
+                },
+                isEditForm: {
+                    type: Boolean,
+                    value: false
+                },
+                isDeleteForm: {
+                    type: Boolean,
+                    value: false
+                }
+
+            },
+
+            notifySubmitSuccess: function (e) {
+                this.fire('submit-success');
+            }
+        })
+    </script>
+</dom-module>

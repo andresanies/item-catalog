@@ -1,0 +1,196 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
+
+<dom-module id="item-list">
+    <template>
+        <style>
+            .items-list {
+                width: 100%;
+                min-height: 600px;
+                margin-bottom: 64px;
+            }
+
+            .items-container {
+                width: 100%;
+            }
+
+            .item {
+                margin: 3%;
+            }
+
+            .item-form {
+                width: 51%;
+                margin-left: 20%;
+                padding: 16px 36px 16px 36px;
+            }
+
+            .item-detail {
+                width: 60%;
+                margin-left: 18%;
+                padding: 16px 36px 16px 36px;
+            }
+
+            .item-detail-header {
+                @apply(--paper-font-headline);
+                padding-bottom: 32px;
+            }
+
+            .item-detail-content {
+                padding-bottom: 32px;
+            }
+
+            paper-fab {
+                position: absolute;
+                right: 45px;
+                bottom: 40px;
+            }
+
+            paper-fab.green {
+                --paper-fab-background: var(--paper-teal-500);
+                --paper-fab-keyboard-focus-background: var(--paper-teal-900);
+            }
+        </style>
+        <neon-animated-pages id="pages" class="items-container" selected="0"
+                             entry-animation="scale-up-animation" exit-animation="scale-down-animation">
+            <neon-animatable id="latest-items">
+                <paper-card class="items-list" heading="Latest Items">
+                    <div class="card-content">
+
+                        <paper-card class="item flex" image="">
+                            <div class="card-content" on-click="showItemDetail">
+                                <div class="">Soccer</div>
+                            </div>
+                            <div class="card-actions">
+                                <paper-button on-click="showEditItemForm">Edit</paper-button>
+                                <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
+                            </div>
+                        </paper-card>
+
+                    </div>
+                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                </paper-card>
+            </neon-animatable>
+
+            <neon-animatable id="category-items">
+                <paper-card class="items-list" heading="Category Items">
+                    <div class="card-content">
+
+                        <paper-card class="item flex" image="">
+                            <div class="card-content" on-click="showItemDetail">
+                                <div class="">Soccer</div>
+                            </div>
+                            <div class="card-actions">
+                                <paper-button on-click="showEditItemForm">Edit</paper-button>
+                                <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
+                            </div>
+                        </paper-card>
+                    </div>
+                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                </paper-card>
+            </neon-animatable>
+
+            <neon-animatable id="create-item">
+                <paper-card class="item-form" heading="Create item">
+                    <item-form
+                            is-create-form
+                            on-submit-success="moveToCategoryItems"></item-form>
+                </paper-card>
+            </neon-animatable>
+
+            <neon-animatable id="item-detail">
+                <paper-card class="item-detail">
+                    <div class="card-content">
+                        <div class="item-detail-header">
+                            Item detail
+                        </div>
+                        <div class="item-detail-content">
+                            Item detail
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <paper-button on-click="showEditItemForm">Edit</paper-button>
+                        <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
+                    </div>
+                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                </paper-card>
+            </neon-animatable>
+
+            <neon-animatable id="edit-item">
+                <paper-card class="item-form" heading="Edit item">
+                    <item-form
+                            is-edit-form
+                            model=""
+                            on-submit-success="moveToCategoryItems"></item-form>
+                </paper-card>
+            </neon-animatable>
+
+            <neon-animatable id="delete-item">
+                <paper-card class="item-form" heading="Delete item">
+                    <item-form
+                            is-delete-form
+                            model_id=""
+                            on-submit-success="moveToCategoryItems"></item-form>
+                </paper-card>
+            </neon-animatable>
+        </neon-animated-pages>
+
+    </template>
+
+    <script>
+        Polymer({
+            is: "item-list",
+
+            properties: {
+                LATEST_ITEMS: {
+                    type: Number,
+                    value: 0
+                },
+                CATEGORY_ITEMS: {
+                    type: Number,
+                    value: 1
+                },
+                CREATE_ITEM: {
+                    type: Number,
+                    value: 2
+                },
+                ITEM_DETAIL: {
+                    type: Number,
+                    value: 3
+                },
+                EDIT_ITEM: {
+                    type: Number,
+                    value: 4
+                },
+                DELETE_ITEM: {
+                    type: Number,
+                    value: 5
+                }
+            },
+
+            ready: function () {
+                document.querySelector('category-list')
+                        .addEventListener('list-category-items',
+                                this.moveToCategoryItems.bind(this));
+            },
+
+            moveToLatestItems: function () {
+                this.$.pages.select(this.LATEST_ITEMS);
+            },
+            moveToCategoryItems: function () {
+                this.$.pages.select(this.CATEGORY_ITEMS);
+            },
+            showNewItemForm: function () {
+                this.$.pages.select(this.CREATE_ITEM);
+            },
+            showItemDetail: function () {
+                this.$.pages.select(this.ITEM_DETAIL);
+            },
+            showEditItemForm: function () {
+                this.$.pages.select(this.EDIT_ITEM);
+            },
+            ConfirmItemRemoval: function () {
+                this.$.pages.select(this.DELETE_ITEM);
+            }
+        })
+    </script>
+</dom-module>

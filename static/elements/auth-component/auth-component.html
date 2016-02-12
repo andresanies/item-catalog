@@ -1,0 +1,26 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+
+<dom-module id="auth-component">
+    <style>
+        :host{
+            width: 100%;
+        }
+        .login-subtitle{
+            font-size:smaller;
+        }
+    </style>
+    <template>
+        <div class="horizontal end-justified layout">
+            <div class="vertical layout">
+                <paper-icon-button icon="account-circle" on-click="login"></paper-icon-button>
+                <div class="login-subtitle">Login</div>
+            </div>
+        </div>
+
+    </template>
+    <script>
+        Polymer({
+            is: "auth-component"
+        })
+    </script>
+</dom-module>

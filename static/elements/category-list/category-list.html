@@ -1,0 +1,37 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
+
+<dom-module id="category-list">
+    <template>
+        <style>
+            .categories-container {
+                height: 100%;
+                width: 100%;
+                /*margin-bottom: 64px;*/
+            }
+        </style>
+        <paper-card id="categories" class="categories-container" heading="Categories">
+            <paper-menu id="menu" class="card-content" on-iron-select="listCategoryItems">
+                <paper-item>Soccer</paper-item>
+                <paper-item>Basketball</paper-item>
+                <paper-item>Baseball</paper-item>
+                <paper-item>Frisbee</paper-item>
+                <paper-item>Snowboarding</paper-item>
+                <paper-item>Rock Climbing</paper-item>
+                <paper-item>Foosball</paper-item>
+                <paper-item>Skating</paper-item>
+                <paper-item>Hockey</paper-item>
+            </paper-menu>
+        </paper-card>
+    </template>
+
+    <script>
+        Polymer({
+            is: "category-list",
+
+            listCategoryItems: function (e){
+                this.fire('list-category-items');
+            }
+        })
+    </script>
+</dom-module>
