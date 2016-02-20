@@ -1,0 +1,35 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
+
+<dom-module id="category-menu">
+    <template>
+        <paper-menu id="menu" class="card-content">
+            <template is="dom-repeat" items="{{categories}}" as="category">
+                <paper-item id="{{category.id}}">{{category.name}}</paper-item>
+            </template>
+        </paper-menu>
+
+        <iron-ajax
+                auto
+                url="/categories/"
+                handle-as="json"
+                on-response="setCategories"></iron-ajax>
+    </template>
+
+    <script>
+        Polymer({
+            is: "category-menu",
+
+            properties: {
+                categories: {
+                    type: Array,
+                    value: []
+                }
+            },
+
+            setCategories: function(response) {
+                this.categories = response.target.lastResponse;
+            }
+        })
+    </script>
+</dom-module>

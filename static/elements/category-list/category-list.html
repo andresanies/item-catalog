@@ -11,17 +11,7 @@
             }
         </style>
         <paper-card id="categories" class="categories-container" heading="Categories">
-            <paper-menu id="menu" class="card-content" on-iron-select="listCategoryItems">
-                <paper-item>Soccer</paper-item>
-                <paper-item>Basketball</paper-item>
-                <paper-item>Baseball</paper-item>
-                <paper-item>Frisbee</paper-item>
-                <paper-item>Snowboarding</paper-item>
-                <paper-item>Rock Climbing</paper-item>
-                <paper-item>Foosball</paper-item>
-                <paper-item>Skating</paper-item>
-                <paper-item>Hockey</paper-item>
-            </paper-menu>
+            <category-menu on-iron-select="listCategoryItems"></category-menu>
         </paper-card>
     </template>
 
@@ -29,9 +19,9 @@
         Polymer({
             is: "category-list",
 
-            listCategoryItems: function (e){
-                this.fire('list-category-items');
+            listCategoryItems: function (event) {
+                this.fire('list-category-items', {'category': event.detail.item.id});
             }
-        })
+        });
     </script>
 </dom-module>
