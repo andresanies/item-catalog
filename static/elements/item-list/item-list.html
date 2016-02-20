@@ -55,35 +55,36 @@
             <neon-animatable id="latest-items">
                 <paper-card class="items-list" heading="Latest Items">
                     <div class="card-content">
-
-                        <paper-card class="item flex" image="">
-                            <div class="card-content" on-click="showItemDetail">
-                                <div class="">Soccer</div>
-                            </div>
-                            <div class="card-actions">
-                                <paper-button on-click="showEditItemForm">Edit</paper-button>
-                                <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
-                            </div>
-                        </paper-card>
-
+                        <template is="dom-repeat" items="{{latestItems}}">
+                            <paper-card class="item flex" image="{{item.image}}">
+                                <div class="card-content" on-click="showItemDetail">
+                                    <div class="">{{item.name}} ({{item.category}})</div>
+                                </div>
+                                <div class="card-actions">
+                                    <paper-button on-click="showEditItemForm">Edit</paper-button>
+                                    <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
+                                </div>
+                            </paper-card>
+                        </template>
                     </div>
                     <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
                 </paper-card>
             </neon-animatable>
 
             <neon-animatable id="category-items">
-                <paper-card class="items-list" heading="Category Items">
+                <paper-card class="items-list" heading="{{categoryItems.name}} Items - {{categoryItems.items.length}} item(s)">
                     <div class="card-content">
-
-                        <paper-card class="item flex" image="">
-                            <div class="card-content" on-click="showItemDetail">
-                                <div class="">Soccer</div>
-                            </div>
-                            <div class="card-actions">
-                                <paper-button on-click="showEditItemForm">Edit</paper-button>
-                                <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
-                            </div>
-                        </paper-card>
+                        <template is="dom-repeat" items="{{categoryItems.items}}">
+                            <paper-card class="item flex" image="{{item.image}}">
+                                <div class="card-content" on-click="showItemDetail">
+                                    <div class="">{{item.name}}</div>
+                                </div>
+                                <div class="card-actions">
+                                    <paper-button on-click="showEditItemForm">Edit</paper-button>
+                                    <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
+                                </div>
+                            </paper-card>
+                        </template>
                     </div>
                     <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
                 </paper-card>
@@ -101,10 +102,10 @@
                 <paper-card class="item-detail">
                     <div class="card-content">
                         <div class="item-detail-header">
-                            Item detail
+                            {{itemDetail.title}}
                         </div>
                         <div class="item-detail-content">
-                            Item detail
+                            {{itemDetail.description}}
                         </div>
                     </div>
                     <div class="card-actions">
@@ -119,7 +120,7 @@
                 <paper-card class="item-form" heading="Edit item">
                     <item-form
                             is-edit-form
-                            model=""
+                            item_id=""
                             on-submit-success="moveToCategoryItems"></item-form>
                 </paper-card>
             </neon-animatable>
@@ -128,7 +129,7 @@
                 <paper-card class="item-form" heading="Delete item">
                     <item-form
                             is-delete-form
-                            model_id=""
+                            item_id=""
                             on-submit-success="moveToCategoryItems"></item-form>
                 </paper-card>
             </neon-animatable>
@@ -164,6 +165,70 @@
                 DELETE_ITEM: {
                     type: Number,
                     value: 5
+                },
+                latestItems: {
+                    type: Array,
+                    value: function () {
+                        return [
+                            {
+                                'name': 'Liga',
+                                image: '',
+                                'category': 'Soccer'
+                            },
+                            {
+                                'name': 'Barcelona',
+                                image: '',
+                                'category': 'Soccer'
+                            },
+                            {
+                                'name': 'Nacional',
+                                image: '',
+                                'category': 'Soccer'
+                            },
+                            {
+                                'name': 'Quito',
+                                image: '',
+                                'category': 'Soccer'
+                            }
+                        ]
+                    }
+                },
+                categoryItems: {
+                    type: Object,
+                    value: function () {
+                        return {
+                            'name': 'Soccer',
+                            'items': [
+                                {
+                                    'name': 'Aucas',
+                                    image: ''
+                                }
+                            ]
+                        }
+                    }
+                },
+                itemDetail: {
+                    type: Object,
+                    value: function() {
+                        return {
+                            'title': 'Liga',
+                            'image': '',
+                            'description': 'Liga Deportiva Universitaria (conocido también como LDU, ' +
+                                            'Liga de Quito o simplemente Liga), es un club deportivo ecuatoriano ' +
+                                            'profesional con sede la ciudad de Quito. Fue fundada en octubre de 1918 ' +
+                                            'como Club Universitario5 6 7 por un grupo de deportistas y estudiantes' +
+                                            ' pertenecientes a la Universidad Central del Ecuador y se oficializó con' +
+                                            ' el nombre actual el 11 de enero de 1930. Su principal deporte es el ' +
+                                            'fútbol y juega actualmente en la Serie A de Ecuador. Ha obtenido 10 ' +
+                                            'campeonatos nacionales y 4 internacionales.8 9 Es el único equipo del ' +
+                                            'Ecuador en ganar torneos internacionales oficiales, una Copa ' +
+                                            'Libertadores de América, una Copa Sudamericana y dos Recopas ' +
+                                            'Sudamericanas. También fue subcampeón de la Copa Mundial de Clubes ' +
+                                            'de la FIFA 2008, Copa Suruga Bank 2010 y de la Copa Sudamericana ' +
+                                            '2011. Además es reconocido por la FIFA como uno de los ' +
+                                            '"Clubes Clásicos" del Mundo.'
+                        }
+                    }
                 }
             },
 
@@ -176,7 +241,9 @@
             moveToLatestItems: function () {
                 this.$.pages.select(this.LATEST_ITEMS);
             },
-            moveToCategoryItems: function () {
+            moveToCategoryItems: function (event) {
+                var category = event.detail.category;
+                // TODO: call category web service to get category items
                 this.$.pages.select(this.CATEGORY_ITEMS);
             },
             showNewItemForm: function () {

@@ -28,9 +28,9 @@
         <form id="form" method="post" action="/form/handler">
             <div class="card-content">
                 <template is="dom-if" if="{{!isDeleteForm}}">
-                    <paper-input label="Title" autofocus required></paper-input>
-                    <paper-input label="Description" required></paper-input>
-                    <paper-dropdown-menu label="Category"></paper-dropdown-menu>
+                    <paper-input label="Title" autofocus required value="{{item.title}}"></paper-input>
+                    <paper-input label="Description" required value="{{item.description}}"></paper-input>
+                    <paper-dropdown-menu label="Category">{{item.category}}</paper-dropdown-menu>
                     <div class="file-upload">
                         <file-upload target="/path/to/destination">Choose image</file-upload>
                     </div>
@@ -65,8 +65,18 @@
                 isDeleteForm: {
                     type: Boolean,
                     value: false
+                },
+                item_id: Number,
+                item: {
+                    type: Object,
+                    value: function () {
+                        return {
+                            'title': '',
+                            'description': '',
+                            'category': ''
+                        }
+                    }
                 }
-
             },
 
             notifySubmitSuccess: function (e) {

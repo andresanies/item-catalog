@@ -28,6 +28,7 @@
     "paper-fab": "PolymerElements/paper-fab#^1.1.2",
     "paper-dialog": "PolymerElements/paper-dialog#^1.0.4",
     "iron-form": "PolymerElements/iron-form#^1.0.14",
-    "file-upload": "^1.6.3"
+    "file-upload": "^1.6.3",
+    "iron-ajax": "PolymerElements/iron-ajax#^1.1.1"
   }
 }
