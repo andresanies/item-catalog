@@ -100,7 +100,7 @@
                 <paper-card class="item-form" heading="Create item">
                     <item-form
                             is-create-form
-                            on-submit-success="moveToCategoryItems"></item-form>
+                            on-submit-success="listCategoryItems"></item-form>
                 </paper-card>
             </neon-animatable>
 
@@ -127,7 +127,7 @@
                     <item-form
                             is-edit-form
                             item="{{itemDetail}}"
-                            on-submit-success="moveToCategoryItems"></item-form>
+                            on-submit-success="listCategoryItems"></item-form>
                 </paper-card>
             </neon-animatable>
 
@@ -136,7 +136,7 @@
                     <item-form
                             is-delete-form
                             item_id=""
-                            on-submit-success="moveToCategoryItems"></item-form>
+                            on-submit-success="listCategoryItems"></item-form>
                 </paper-card>
             </neon-animatable>
         </neon-animated-pages>
@@ -212,24 +212,7 @@
                 itemDetail: {
                     type: Object,
                     value: function () {
-                        return {
-                            'title': 'Liga',
-                            'image': '',
-                            'description': 'Liga Deportiva Universitaria (conocido también como LDU, ' +
-                            'Liga de Quito o simplemente Liga), es un club deportivo ecuatoriano ' +
-                            'profesional con sede la ciudad de Quito. Fue fundada en octubre de 1918 ' +
-                            'como Club Universitario5 6 7 por un grupo de deportistas y estudiantes' +
-                            ' pertenecientes a la Universidad Central del Ecuador y se oficializó con' +
-                            ' el nombre actual el 11 de enero de 1930. Su principal deporte es el ' +
-                            'fútbol y juega actualmente en la Serie A de Ecuador. Ha obtenido 10 ' +
-                            'campeonatos nacionales y 4 internacionales.8 9 Es el único equipo del ' +
-                            'Ecuador en ganar torneos internacionales oficiales, una Copa ' +
-                            'Libertadores de América, una Copa Sudamericana y dos Recopas ' +
-                            'Sudamericanas. También fue subcampeón de la Copa Mundial de Clubes ' +
-                            'de la FIFA 2008, Copa Suruga Bank 2010 y de la Copa Sudamericana ' +
-                            '2011. Además es reconocido por la FIFA como uno de los ' +
-                            '"Clubes Clásicos" del Mundo.'
-                        }
+                        return {}
                     }
                 }
             },

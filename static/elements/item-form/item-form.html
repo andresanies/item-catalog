@@ -25,7 +25,12 @@
                 margin-top: 20px;
             }
         </style>
-        <form is="iron-form" id="form" method="post" action="/items/{{item.id}}" content-type="application/json">
+        <form is="iron-form"
+              id="form"
+              method="post"
+              action="/items/{{item.id}}"
+              content-type="application/json"
+              disableNativeValidationUi>
             <div class="card-content">
                 <template is="dom-if" if="{{!isDeleteForm}}">
                     <paper-input
@@ -42,6 +47,7 @@
                             error-message="[[requiredErrorMessage]]"
                             value="{{item.description}}"></paper-textarea>
                     <paper-dropdown-menu
+                            id="categoryDropdownMenu"
                             required
                             error-message="[[requiredErrorMessage]]"
                             label="Category">
@@ -107,14 +113,18 @@
                 }
                 if(this.isEditForm) {
                     this.$.form.request.method = 'PUT';
+                    this.$.form.request.body = this.item;
                 }
                 if(this.isDeleteForm) {
                     this.$.form.request.method = 'DELETE';
                 }
             },
 
+            //TODO: show JSON server error messages
             notifySubmitSuccess: function () {
-                this.fire('submit-success');
+                this.fire('submit-success',
+                        {'category': this.$.form.$$('#categoryDropdownMenu').value});
+                this.item = {};
             }
         })
     </script>

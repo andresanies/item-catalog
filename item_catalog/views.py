@@ -6,7 +6,6 @@ from item_catalog import models
 from flask import send_from_directory
 from flask_restful import Resource, fields
 from flask_restful import marshal_with, reqparse
-from flask_restful import marshal
 
 
 @app.route('/')
@@ -41,11 +40,19 @@ class ItemResource(Resource):
 
 
 class Item(ItemResource):
+    @marshal_with(ItemResource.item_fields)
     def get(self, item_id):
-        pass
+        return models.Item.query.filter_by(id=item_id).first_or_404()
 
+    @marshal_with(ItemResource.item_fields)
     def put(self, item_id):
-        pass
+        item_data = self.parser.parse_args()
+        item = models.Item.query.filter_by(id=item_id).first_or_404()
+        item.title = item_data['title']
+        item.description = item_data['description']
+        item.category_id = item_data['category_id']
+        db.session.commit()
+        return item, 200
 
     def delete(self, item_id):
         pass
