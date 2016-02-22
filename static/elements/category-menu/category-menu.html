@@ -1,11 +1,13 @@
 <link rel="import" href="../../bower_components/polymer/polymer.html">
 <link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../../bower_components/iron-form-element-behavior/iron-form-element-behavior.html">
 
 <dom-module id="category-menu">
     <template>
-        <paper-menu id="menu" class="card-content">
+        <paper-menu id="menu" class="card-content" selected="{{selected}}">
+            <paper-item hidden></paper-item>
             <template is="dom-repeat" items="{{categories}}" as="category">
-                <paper-item id="{{category.id}}">{{category.name}}</paper-item>
+                <paper-item id="{{category.id}}" name="{{category.name}}">{{category.name}}</paper-item>
             </template>
         </paper-menu>
 
@@ -24,10 +26,15 @@
                 categories: {
                     type: Array,
                     value: []
+                },
+                selected: {
+                    type: Number,
+                    notify: true,
+                    reflectToAttribute: true
                 }
             },
 
-            setCategories: function(response) {
+            setCategories: function (response) {
                 this.categories = response.target.lastResponse;
             }
         })

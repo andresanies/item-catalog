@@ -21573,6 +21573,393 @@ context. You should place this element as a child of `<body>` whenever possible.
     })();
   </script>
 </dom-module>
+
+
+<dom-module id="iron-autogrow-textarea" assetpath="bower_components/iron-autogrow-textarea/">
+
+  <style>
+    :host {
+      display: inline-block;
+      position: relative;
+      width: 400px;
+      border: 1px solid;
+      padding: 2px;
+      -moz-appearance: textarea;
+      -webkit-appearance: textarea;
+    }
+
+    .mirror-text {
+      visibility: hidden;
+      word-wrap: break-word;
+    }
+
+    .fit {
+      @apply(--layout-fit);
+    }
+
+    textarea {
+      position: relative;
+      outline: none;
+      border: none;
+      resize: none;
+      background: inherit;
+      color: inherit;
+      /* see comments in template */
+      width: 100%;
+      height: 100%;
+      font-size: inherit;
+      font-family: inherit;
+      line-height: inherit;
+      text-align: inherit;
+      @apply(--iron-autogrow-textarea);
+    }
+
+    ::content textarea:invalid {
+      box-shadow: none;
+    }
+
+  </style>
+  <template>
+    
+    
+    <div id="mirror" class="mirror-text" aria-hidden="true">&nbsp;</div>
+
+    
+    <div class="textarea-container fit">
+      <textarea id="textarea" autocomplete$="[[autocomplete]]" autofocus$="[[autofocus]]" inputmode$="[[inputmode]]" placeholder$="[[placeholder]]" readonly$="[[readonly]]" required$="[[required]]" disabled$="[[disabled]]" rows$="[[rows]]" maxlength$="[[maxlength]]"></textarea>
+    </div>
+  </template>
+</dom-module>
+
+<script>
+
+  Polymer({
+
+    is: 'iron-autogrow-textarea',
+
+    behaviors: [
+      Polymer.IronFormElementBehavior,
+      Polymer.IronValidatableBehavior,
+      Polymer.IronControlState
+    ],
+
+    properties: {
+
+      /**
+       * Use this property instead of `value` for two-way data binding.
+       *
+       * @type {string|number|undefined|null}
+       */
+      bindValue: {
+        observer: '_bindValueChanged',
+        type: String
+      },
+
+      /**
+       * The initial number of rows.
+       *
+       * @attribute rows
+       * @type number
+       * @default 1
+       */
+      rows: {
+        type: Number,
+        value: 1,
+        observer: '_updateCached'
+      },
+
+      /**
+       * The maximum number of rows this element can grow to until it
+       * scrolls. 0 means no maximum.
+       *
+       * @attribute maxRows
+       * @type number
+       * @default 0
+       */
+      maxRows: {
+       type: Number,
+       value: 0,
+       observer: '_updateCached'
+      },
+
+      /**
+       * Bound to the textarea's `autocomplete` attribute.
+       */
+      autocomplete: {
+        type: String,
+        value: 'off'
+      },
+
+      /**
+       * Bound to the textarea's `autofocus` attribute.
+       */
+      autofocus: {
+        type: Boolean,
+        value: false
+      },
+
+      /**
+       * Bound to the textarea's `inputmode` attribute.
+       */
+      inputmode: {
+        type: String
+      },
+
+      /**
+       * Bound to the textarea's `name` attribute.
+       */
+      name: {
+        type: String
+      },
+
+      /**
+       * The value for this input, same as `bindValue`
+       */
+      value: {
+        notify: true,
+        type: String,
+        computed: '_computeValue(bindValue)'
+      },
+
+      /**
+       * Bound to the textarea's `placeholder` attribute.
+       */
+      placeholder: {
+        type: String
+      },
+
+      /**
+       * Bound to the textarea's `readonly` attribute.
+       */
+      readonly: {
+        type: String
+      },
+
+      /**
+       * Set to true to mark the textarea as required.
+       */
+      required: {
+        type: Boolean
+      },
+
+      /**
+       * The maximum length of the input value.
+       */
+      maxlength: {
+        type: Number
+      }
+
+    },
+
+    listeners: {
+      'input': '_onInput'
+    },
+
+    /**
+     * Returns the underlying textarea.
+     * @type HTMLTextAreaElement
+     */
+    get textarea() {
+      return this.$.textarea;
+    },
+
+    /**
+     * Returns textarea's selection start.
+     * @type Number
+     */
+    get selectionStart() {
+      return this.$.textarea.selectionStart;
+    },
+
+    /**
+     * Returns textarea's selection end.
+     * @type Number
+     */
+    get selectionEnd() {
+      return this.$.textarea.selectionEnd;
+    },
+
+    /**
+     * Sets the textarea's selection start.
+     */
+    set selectionStart(value) {
+      this.$.textarea.selectionStart = value;
+    },
+
+    /**
+     * Sets the textarea's selection end.
+     */
+    set selectionEnd(value) {
+      this.$.textarea.selectionEnd = value;
+    },
+
+    /**
+     * Returns true if `value` is valid. The validator provided in `validator`
+     * will be used first, if it exists; otherwise, the `textarea`'s validity
+     * is used.
+     * @return {boolean} True if the value is valid.
+     */
+    validate: function() {
+      // Empty, non-required input is valid.
+      if (!this.required && this.value == '') {
+        this.invalid = false;
+        return true;
+      }
+
+      var valid;
+      if (this.hasValidator()) {
+        valid = Polymer.IronValidatableBehavior.validate.call(this, this.value);
+      } else {
+        valid = this.$.textarea.validity.valid;
+        this.invalid = !valid;
+      }
+      this.fire('iron-input-validate');
+      return valid;
+    },
+
+    _bindValueChanged: function() {
+      var textarea = this.textarea;
+      if (!textarea) {
+        return;
+      }
+
+      // If the bindValue changed manually, then we need to also update
+      // the underlying textarea's value. Otherwise this change was probably
+      // generated from the _onInput handler, and the two values are already
+      // the same.
+      if (textarea.value !== this.bindValue) {
+        textarea.value = !(this.bindValue || this.bindValue === 0) ? '' : this.bindValue;
+      }
+
+      this.$.mirror.innerHTML = this._valueForMirror();
+      // manually notify because we don't want to notify until after setting value
+      this.fire('bind-value-changed', {value: this.bindValue});
+    },
+
+    _onInput: function(event) {
+      this.bindValue = event.path ? event.path[0].value : event.target.value;
+    },
+
+    _constrain: function(tokens) {
+      var _tokens;
+      tokens = tokens || [''];
+      // Enforce the min and max heights for a multiline input to avoid measurement
+      if (this.maxRows > 0 && tokens.length > this.maxRows) {
+        _tokens = tokens.slice(0, this.maxRows);
+      } else {
+        _tokens = tokens.slice(0);
+      }
+      while (this.rows > 0 && _tokens.length < this.rows) {
+        _tokens.push('');
+      }
+      // Use &#160; instead &nbsp; of to allow this element to be used in XHTML.
+      return _tokens.join('<br/>') + '&#160;';
+    },
+
+    _valueForMirror: function() {
+      var input = this.textarea;
+      if (!input) {
+        return;
+      }
+      this.tokens = (input && input.value) ? input.value.replace(/&/gm, '&amp;').replace(/"/gm, '&quot;').replace(/'/gm, '&#39;').replace(/</gm, '&lt;').replace(/>/gm, '&gt;').split('\n') : [''];
+      return this._constrain(this.tokens);
+    },
+
+    _updateCached: function() {
+      this.$.mirror.innerHTML = this._constrain(this.tokens);
+    },
+
+    _computeValue: function() {
+      return this.bindValue;
+    }
+  });
+</script>
+
+
+<dom-module id="paper-textarea" assetpath="bower_components/paper-input/">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+
+    <paper-input-container no-label-float$="[[noLabelFloat]]" always-float-label="[[_computeAlwaysFloatLabel(alwaysFloatLabel,placeholder)]]" auto-validate$="[[autoValidate]]" disabled$="[[disabled]]" invalid="[[invalid]]">
+
+      <label hidden$="[[!label]]">[[label]]</label>
+
+      <iron-autogrow-textarea id="input" class="paper-input-input" bind-value="{{value}}" disabled$="[[disabled]]" autocomplete$="[[autocomplete]]" autofocus$="[[autofocus]]" inputmode$="[[inputmode]]" name$="[[name]]" placeholder$="[[placeholder]]" readonly$="[[readonly]]" required$="[[required]]" maxlength$="[[maxlength]]" autocapitalize$="[[autocapitalize]]" rows$="[[rows]]" max-rows$="[[maxRows]]" on-change="_onChange"></iron-autogrow-textarea>
+
+      <template is="dom-if" if="[[errorMessage]]">
+        <paper-input-error>[[errorMessage]]</paper-input-error>
+      </template>
+
+      <template is="dom-if" if="[[charCounter]]">
+        <paper-input-char-counter></paper-input-char-counter>
+      </template>
+
+    </paper-input-container>
+  </template>
+</dom-module>
+
+<script>
+  Polymer({
+    is: 'paper-textarea',
+
+    behaviors: [
+      Polymer.PaperInputBehavior
+    ],
+
+    properties: {
+      _ariaLabelledBy: {
+        observer: '_ariaLabelledByChanged',
+        type: String
+      },
+
+      _ariaDescribedBy: {
+        observer: '_ariaDescribedByChanged',
+        type: String
+      },
+
+      /**
+       * The initial number of rows.
+       *
+       * @attribute rows
+       * @type number
+       * @default 1
+       */
+      rows: {
+        type: Number,
+        value: 1
+      },
+
+      /**
+       * The maximum number of rows this element can grow to until it
+       * scrolls. 0 means no maximum.
+       *
+       * @attribute maxRows
+       * @type number
+       * @default 0
+       */
+      maxRows: {
+       type: Number,
+       value: 0
+      }
+    },
+
+    _ariaLabelledByChanged: function(ariaLabelledBy) {
+      this.$.input.textarea.setAttribute('aria-labelledby', ariaLabelledBy);
+    },
+
+    _ariaDescribedByChanged: function(ariaDescribedBy) {
+      this.$.input.textarea.setAttribute('aria-describedby', ariaDescribedBy);
+    },
+
+    get _focusableElement() {
+      return this.$.input.textarea;
+    },
+  });
+</script>
 <script>
 
 /**
@@ -24479,9 +24866,10 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
 </script>
 <dom-module id="category-menu" assetpath="elements/category-menu/">
     <template>
-        <paper-menu id="menu" class="card-content">
+        <paper-menu id="menu" class="card-content" selected="{{selected}}">
+            <paper-item hidden=""></paper-item>
             <template is="dom-repeat" items="{{categories}}" as="category">
-                <paper-item id="{{category.id}}">{{category.name}}</paper-item>
+                <paper-item id="{{category.id}}" name="{{category.name}}">{{category.name}}</paper-item>
             </template>
         </paper-menu>
 
@@ -24496,10 +24884,15 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 categories: {
                     type: Array,
                     value: []
+                },
+                selected: {
+                    type: Number,
+                    notify: true,
+                    reflectToAttribute: true
                 }
             },
 
-            setCategories: function(response) {
+            setCategories: function (response) {
                 this.categories = response.target.lastResponse;
             }
         })
@@ -24523,7 +24916,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
             is: "category-list",
 
             listCategoryItems: function (event) {
-                this.fire('list-category-items', {'category': event.detail.item.id});
+                this.fire('list-category-items', {'category': event.detail.item.name});
             }
         });
     </script>
@@ -24545,8 +24938,8 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
             }
 
             .item-form {
-                width: 51%;
-                margin-left: 20%;
+                width: 63%;
+                margin-left: 15%;
                 padding: 16px 36px 16px 36px;
             }
 
@@ -24583,10 +24976,10 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                         <template is="dom-repeat" items="{{latestItems}}">
                             <paper-card class="item flex" image="{{item.image}}">
                                 <div class="card-content" on-click="showItemDetail">
-                                    <div class="">{{item.name}} ({{item.category}})</div>
+                                    <div class="">{{item.title}} ({{item.category}})</div>
                                 </div>
                                 <div class="card-actions">
-                                    <paper-button on-click="showEditItemForm">Edit</paper-button>
+                                    <paper-button on-click="editItemFromList">Edit</paper-button>
                                     <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                                 </div>
                             </paper-card>
@@ -24597,15 +24990,16 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
             </neon-animatable>
 
             <neon-animatable id="category-items">
+                <iron-ajax id="categoryItemsService" url="/items/{{categoryItems.name}}" handle-as="json" on-response="moveToCategoryItems"></iron-ajax>
                 <paper-card class="items-list" heading="{{categoryItems.name}} Items - {{categoryItems.items.length}} item(s)">
                     <div class="card-content">
                         <template is="dom-repeat" items="{{categoryItems.items}}">
                             <paper-card class="item flex" image="{{item.image}}">
                                 <div class="card-content" on-click="showItemDetail">
-                                    <div class="">{{item.name}}</div>
+                                    <div class="">{{item.title}}</div>
                                 </div>
                                 <div class="card-actions">
-                                    <paper-button on-click="showEditItemForm">Edit</paper-button>
+                                    <paper-button on-click="editItemFromList">Edit</paper-button>
                                     <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                                 </div>
                             </paper-card>
@@ -24632,7 +25026,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                         </div>
                     </div>
                     <div class="card-actions">
-                        <paper-button on-click="showEditItemForm">Edit</paper-button>
+                        <paper-button on-click="editItemFromDetail">Edit</paper-button>
                         <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                     </div>
                     <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
@@ -24641,7 +25035,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
 
             <neon-animatable id="edit-item">
                 <paper-card class="item-form" heading="Edit item">
-                    <item-form is-edit-form="" item_id="" on-submit-success="moveToCategoryItems"></item-form>
+                    <item-form is-edit-form="" item="{{itemDetail}}" on-submit-success="moveToCategoryItems"></item-form>
                 </paper-card>
             </neon-animatable>
 
@@ -24712,38 +25106,34 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 },
                 categoryItems: {
                     type: Object,
+                    notify: true,
                     value: function () {
                         return {
-                            'name': 'Soccer',
-                            'items': [
-                                {
-                                    'name': 'Aucas',
-                                    image: ''
-                                }
-                            ]
+                            'name': '',
+                            'items': []
                         }
                     }
                 },
                 itemDetail: {
                     type: Object,
-                    value: function() {
+                    value: function () {
                         return {
                             'title': 'Liga',
                             'image': '',
                             'description': 'Liga Deportiva Universitaria (conocido también como LDU, ' +
-                                            'Liga de Quito o simplemente Liga), es un club deportivo ecuatoriano ' +
-                                            'profesional con sede la ciudad de Quito. Fue fundada en octubre de 1918 ' +
-                                            'como Club Universitario5 6 7 por un grupo de deportistas y estudiantes' +
-                                            ' pertenecientes a la Universidad Central del Ecuador y se oficializó con' +
-                                            ' el nombre actual el 11 de enero de 1930. Su principal deporte es el ' +
-                                            'fútbol y juega actualmente en la Serie A de Ecuador. Ha obtenido 10 ' +
-                                            'campeonatos nacionales y 4 internacionales.8 9 Es el único equipo del ' +
-                                            'Ecuador en ganar torneos internacionales oficiales, una Copa ' +
-                                            'Libertadores de América, una Copa Sudamericana y dos Recopas ' +
-                                            'Sudamericanas. También fue subcampeón de la Copa Mundial de Clubes ' +
-                                            'de la FIFA 2008, Copa Suruga Bank 2010 y de la Copa Sudamericana ' +
-                                            '2011. Además es reconocido por la FIFA como uno de los ' +
-                                            '"Clubes Clásicos" del Mundo.'
+                            'Liga de Quito o simplemente Liga), es un club deportivo ecuatoriano ' +
+                            'profesional con sede la ciudad de Quito. Fue fundada en octubre de 1918 ' +
+                            'como Club Universitario5 6 7 por un grupo de deportistas y estudiantes' +
+                            ' pertenecientes a la Universidad Central del Ecuador y se oficializó con' +
+                            ' el nombre actual el 11 de enero de 1930. Su principal deporte es el ' +
+                            'fútbol y juega actualmente en la Serie A de Ecuador. Ha obtenido 10 ' +
+                            'campeonatos nacionales y 4 internacionales.8 9 Es el único equipo del ' +
+                            'Ecuador en ganar torneos internacionales oficiales, una Copa ' +
+                            'Libertadores de América, una Copa Sudamericana y dos Recopas ' +
+                            'Sudamericanas. También fue subcampeón de la Copa Mundial de Clubes ' +
+                            'de la FIFA 2008, Copa Suruga Bank 2010 y de la Copa Sudamericana ' +
+                            '2011. Además es reconocido por la FIFA como uno de los ' +
+                            '"Clubes Clásicos" del Mundo.'
                         }
                     }
                 }
@@ -24752,23 +25142,41 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
             ready: function () {
                 document.querySelector('category-list')
                         .addEventListener('list-category-items',
-                                this.moveToCategoryItems.bind(this));
+                                this.listCategoryItems.bind(this));
             },
 
             moveToLatestItems: function () {
                 this.$.pages.select(this.LATEST_ITEMS);
             },
-            moveToCategoryItems: function (event) {
-                var category = event.detail.category;
-                // TODO: call category web service to get category items
+
+            listCategoryItems: function (event) {
+                this.set('categoryItems.name', event.detail.category);
+                this.$.categoryItemsService.generateRequest();
+            },
+
+            moveToCategoryItems: function (serviceResponse) {
+                this.set('categoryItems.items', serviceResponse.target.lastResponse);
                 this.$.pages.select(this.CATEGORY_ITEMS);
             },
+
             showNewItemForm: function () {
                 this.$.pages.select(this.CREATE_ITEM);
             },
-            showItemDetail: function () {
+
+            showItemDetail: function (event) {
+                this.itemDetail = event.model.item;
                 this.$.pages.select(this.ITEM_DETAIL);
             },
+
+            editItemFromDetail: function(event){
+                this.showEditItemForm();
+            },
+
+            editItemFromList: function(event){
+                this.itemDetail = event.model.item;
+                this.showEditItemForm();
+            },
+
             showEditItemForm: function () {
                 this.$.pages.select(this.EDIT_ITEM);
             },
@@ -24825,12 +25233,14 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 margin-top: 20px;
             }
         </style>
-        <form id="form" method="post" action="/form/handler">
+        <form is="iron-form" id="form" method="post" action="/items/{{item.id}}" content-type="application/json">
             <div class="card-content">
                 <template is="dom-if" if="{{!isDeleteForm}}">
-                    <paper-input label="Title" autofocus="" required="" value="{{item.title}}"></paper-input>
-                    <paper-input label="Description" required="" value="{{item.description}}"></paper-input>
-                    <paper-dropdown-menu label="Category">{{item.category}}</paper-dropdown-menu>
+                    <paper-input label="Title" name="title" autofocus="" required="" error-message="[[requiredErrorMessage]]" value="{{item.title}}"></paper-input>
+                    <paper-textarea label="Description" name="description" required="" error-message="[[requiredErrorMessage]]" value="{{item.description}}"></paper-textarea>
+                    <paper-dropdown-menu required="" error-message="[[requiredErrorMessage]]" label="Category">
+                        <category-menu class="dropdown-content" selected="{{item.category_id}}"></category-menu>
+                    </paper-dropdown-menu>
                     <div class="file-upload">
                         <file-upload target="/path/to/destination">Choose image</file-upload>
                     </div>
@@ -24840,7 +25250,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 </template>
             </div>
             <div class="card-actions">
-                <paper-button on-click="notifySubmitSuccess">Submit</paper-button>
+                <paper-button on-click="submitForm">Submit</paper-button>
             </div>
         </form>
     </template>
@@ -24849,7 +25259,8 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
             is: "item-form",
 
             listeners: {
-                'form.iron-form-response': 'notifySubmitSuccess'
+                'iron-form-presubmit': 'setupRequest',
+                'iron-form-response': 'notifySubmitSuccess'
             },
 
             properties: {
@@ -24866,20 +25277,35 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                     type: Boolean,
                     value: false
                 },
-                item_id: Number,
                 item: {
                     type: Object,
                     value: function () {
-                        return {
-                            'title': '',
-                            'description': '',
-                            'category': ''
-                        }
+                        return {}
                     }
+                },
+                requiredErrorMessage: {
+                    type: String,
+                    value: 'This field is required'
                 }
             },
 
-            notifySubmitSuccess: function (e) {
+            submitForm: function() {
+                this.$.form.submit();
+            },
+
+            setupRequest: function(){
+                if(this.isCreateForm) {
+                    this.$.form.request.body = this.item;
+                }
+                if(this.isEditForm) {
+                    this.$.form.request.method = 'PUT';
+                }
+                if(this.isDeleteForm) {
+                    this.$.form.request.method = 'DELETE';
+                }
+            },
+
+            notifySubmitSuccess: function () {
                 this.fire('submit-success');
             }
         })

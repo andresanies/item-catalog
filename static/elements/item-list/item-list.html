@@ -19,8 +19,8 @@
             }
 
             .item-form {
-                width: 51%;
-                margin-left: 20%;
+                width: 63%;
+                margin-left: 15%;
                 padding: 16px 36px 16px 36px;
             }
 
@@ -58,10 +58,10 @@
                         <template is="dom-repeat" items="{{latestItems}}">
                             <paper-card class="item flex" image="{{item.image}}">
                                 <div class="card-content" on-click="showItemDetail">
-                                    <div class="">{{item.name}} ({{item.category}})</div>
+                                    <div class="">{{item.title}} ({{item.category}})</div>
                                 </div>
                                 <div class="card-actions">
-                                    <paper-button on-click="showEditItemForm">Edit</paper-button>
+                                    <paper-button on-click="editItemFromList">Edit</paper-button>
                                     <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                                 </div>
                             </paper-card>
@@ -72,15 +72,21 @@
             </neon-animatable>
 
             <neon-animatable id="category-items">
-                <paper-card class="items-list" heading="{{categoryItems.name}} Items - {{categoryItems.items.length}} item(s)">
+                <iron-ajax
+                        id="categoryItemsService"
+                        url="/items/{{categoryItems.name}}"
+                        handle-as="json"
+                        on-response="moveToCategoryItems"></iron-ajax>
+                <paper-card class="items-list"
+                            heading="{{categoryItems.name}} Items - {{categoryItems.items.length}} item(s)">
                     <div class="card-content">
                         <template is="dom-repeat" items="{{categoryItems.items}}">
                             <paper-card class="item flex" image="{{item.image}}">
                                 <div class="card-content" on-click="showItemDetail">
-                                    <div class="">{{item.name}}</div>
+                                    <div class="">{{item.title}}</div>
                                 </div>
                                 <div class="card-actions">
-                                    <paper-button on-click="showEditItemForm">Edit</paper-button>
+                                    <paper-button on-click="editItemFromList">Edit</paper-button>
                                     <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                                 </div>
                             </paper-card>
@@ -109,7 +115,7 @@
                         </div>
                     </div>
                     <div class="card-actions">
-                        <paper-button on-click="showEditItemForm">Edit</paper-button>
+                        <paper-button on-click="editItemFromDetail">Edit</paper-button>
                         <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                     </div>
                     <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
@@ -120,7 +126,7 @@
                 <paper-card class="item-form" heading="Edit item">
                     <item-form
                             is-edit-form
-                            item_id=""
+                            item="{{itemDetail}}"
                             on-submit-success="moveToCategoryItems"></item-form>
                 </paper-card>
             </neon-animatable>
@@ -195,38 +201,34 @@
                 },
                 categoryItems: {
                     type: Object,
+                    notify: true,
                     value: function () {
                         return {
-                            'name': 'Soccer',
-                            'items': [
-                                {
-                                    'name': 'Aucas',
-                                    image: ''
-                                }
-                            ]
+                            'name': '',
+                            'items': []
                         }
                     }
                 },
                 itemDetail: {
                     type: Object,
-                    value: function() {
+                    value: function () {
                         return {
                             'title': 'Liga',
                             'image': '',
                             'description': 'Liga Deportiva Universitaria (conocido también como LDU, ' +
-                                            'Liga de Quito o simplemente Liga), es un club deportivo ecuatoriano ' +
-                                            'profesional con sede la ciudad de Quito. Fue fundada en octubre de 1918 ' +
-                                            'como Club Universitario5 6 7 por un grupo de deportistas y estudiantes' +
-                                            ' pertenecientes a la Universidad Central del Ecuador y se oficializó con' +
-                                            ' el nombre actual el 11 de enero de 1930. Su principal deporte es el ' +
-                                            'fútbol y juega actualmente en la Serie A de Ecuador. Ha obtenido 10 ' +
-                                            'campeonatos nacionales y 4 internacionales.8 9 Es el único equipo del ' +
-                                            'Ecuador en ganar torneos internacionales oficiales, una Copa ' +
-                                            'Libertadores de América, una Copa Sudamericana y dos Recopas ' +
-                                            'Sudamericanas. También fue subcampeón de la Copa Mundial de Clubes ' +
-                                            'de la FIFA 2008, Copa Suruga Bank 2010 y de la Copa Sudamericana ' +
-                                            '2011. Además es reconocido por la FIFA como uno de los ' +
-                                            '"Clubes Clásicos" del Mundo.'
+                            'Liga de Quito o simplemente Liga), es un club deportivo ecuatoriano ' +
+                            'profesional con sede la ciudad de Quito. Fue fundada en octubre de 1918 ' +
+                            'como Club Universitario5 6 7 por un grupo de deportistas y estudiantes' +
+                            ' pertenecientes a la Universidad Central del Ecuador y se oficializó con' +
+                            ' el nombre actual el 11 de enero de 1930. Su principal deporte es el ' +
+                            'fútbol y juega actualmente en la Serie A de Ecuador. Ha obtenido 10 ' +
+                            'campeonatos nacionales y 4 internacionales.8 9 Es el único equipo del ' +
+                            'Ecuador en ganar torneos internacionales oficiales, una Copa ' +
+                            'Libertadores de América, una Copa Sudamericana y dos Recopas ' +
+                            'Sudamericanas. También fue subcampeón de la Copa Mundial de Clubes ' +
+                            'de la FIFA 2008, Copa Suruga Bank 2010 y de la Copa Sudamericana ' +
+                            '2011. Además es reconocido por la FIFA como uno de los ' +
+                            '"Clubes Clásicos" del Mundo.'
                         }
                     }
                 }
@@ -235,23 +237,41 @@
             ready: function () {
                 document.querySelector('category-list')
                         .addEventListener('list-category-items',
-                                this.moveToCategoryItems.bind(this));
+                                this.listCategoryItems.bind(this));
             },
 
             moveToLatestItems: function () {
                 this.$.pages.select(this.LATEST_ITEMS);
             },
-            moveToCategoryItems: function (event) {
-                var category = event.detail.category;
-                // TODO: call category web service to get category items
+
+            listCategoryItems: function (event) {
+                this.set('categoryItems.name', event.detail.category);
+                this.$.categoryItemsService.generateRequest();
+            },
+
+            moveToCategoryItems: function (serviceResponse) {
+                this.set('categoryItems.items', serviceResponse.target.lastResponse);
                 this.$.pages.select(this.CATEGORY_ITEMS);
             },
+
             showNewItemForm: function () {
                 this.$.pages.select(this.CREATE_ITEM);
             },
-            showItemDetail: function () {
+
+            showItemDetail: function (event) {
+                this.itemDetail = event.model.item;
                 this.$.pages.select(this.ITEM_DETAIL);
             },
+
+            editItemFromDetail: function(event){
+                this.showEditItemForm();
+            },
+
+            editItemFromList: function(event){
+                this.itemDetail = event.model.item;
+                this.showEditItemForm();
+            },
+
             showEditItemForm: function () {
                 this.$.pages.select(this.EDIT_ITEM);
             },

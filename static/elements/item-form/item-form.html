@@ -25,12 +25,30 @@
                 margin-top: 20px;
             }
         </style>
-        <form id="form" method="post" action="/form/handler">
+        <form is="iron-form" id="form" method="post" action="/items/{{item.id}}" content-type="application/json">
             <div class="card-content">
                 <template is="dom-if" if="{{!isDeleteForm}}">
-                    <paper-input label="Title" autofocus required value="{{item.title}}"></paper-input>
-                    <paper-input label="Description" required value="{{item.description}}"></paper-input>
-                    <paper-dropdown-menu label="Category">{{item.category}}</paper-dropdown-menu>
+                    <paper-input
+                            label="Title"
+                            name="title"
+                            autofocus
+                            required
+                            error-message="[[requiredErrorMessage]]"
+                            value="{{item.title}}"></paper-input>
+                    <paper-textarea
+                            label="Description"
+                            name="description"
+                            required
+                            error-message="[[requiredErrorMessage]]"
+                            value="{{item.description}}"></paper-textarea>
+                    <paper-dropdown-menu
+                            required
+                            error-message="[[requiredErrorMessage]]"
+                            label="Category">
+                        <category-menu
+                                class="dropdown-content"
+                                selected="{{item.category_id}}"></category-menu>
+                    </paper-dropdown-menu>
                     <div class="file-upload">
                         <file-upload target="/path/to/destination">Choose image</file-upload>
                     </div>
@@ -40,7 +58,7 @@
                 </template>
             </div>
             <div class="card-actions">
-                <paper-button on-click="notifySubmitSuccess">Submit</paper-button>
+                <paper-button on-click="submitForm">Submit</paper-button>
             </div>
         </form>
     </template>
@@ -49,7 +67,8 @@
             is: "item-form",
 
             listeners: {
-                'form.iron-form-response': 'notifySubmitSuccess'
+                'iron-form-presubmit': 'setupRequest',
+                'iron-form-response': 'notifySubmitSuccess'
             },
 
             properties: {
@@ -66,20 +85,35 @@
                     type: Boolean,
                     value: false
                 },
-                item_id: Number,
                 item: {
                     type: Object,
                     value: function () {
-                        return {
-                            'title': '',
-                            'description': '',
-                            'category': ''
-                        }
+                        return {}
                     }
+                },
+                requiredErrorMessage: {
+                    type: String,
+                    value: 'This field is required'
                 }
             },
 
-            notifySubmitSuccess: function (e) {
+            submitForm: function() {
+                this.$.form.submit();
+            },
+
+            setupRequest: function(){
+                if(this.isCreateForm) {
+                    this.$.form.request.body = this.item;
+                }
+                if(this.isEditForm) {
+                    this.$.form.request.method = 'PUT';
+                }
+                if(this.isDeleteForm) {
+                    this.$.form.request.method = 'DELETE';
+                }
+            },
+
+            notifySubmitSuccess: function () {
                 this.fire('submit-success');
             }
         })
