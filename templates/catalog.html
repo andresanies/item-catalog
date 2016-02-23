@@ -2437,6 +2437,8 @@ window.CustomElements.addModule(function(scope) {
     
     
     
+    
+    
 </head>
 <body unresolved=""><div hidden="" by-vulcanize=""><script>(function () {
 function resolve() {
@@ -24907,7 +24909,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
             }
         </style>
         <paper-card id="categories" class="categories-container" heading="Categories">
-            <category-menu on-iron-select="listCategoryItems"></category-menu>
+            <category-menu id="sideBarCategoryMenu" on-iron-select="listCategoryItems"></category-menu>
         </paper-card>
     </template>
 
@@ -24971,16 +24973,17 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
         </style>
         <neon-animated-pages id="pages" class="items-container" selected="0" entry-animation="scale-up-animation" exit-animation="scale-down-animation">
             <neon-animatable id="latest-items">
+                <iron-ajax auto="" id="latestItemsService" url="/latest_items/" handle-as="json" on-response="setLatestItems"></iron-ajax>
                 <paper-card class="items-list" heading="Latest Items">
                     <div class="card-content">
                         <template is="dom-repeat" items="{{latestItems}}">
                             <paper-card class="item flex" image="{{item.image}}">
                                 <div class="card-content" on-click="showItemDetail">
-                                    <div class="">{{item.title}} ({{item.category}})</div>
+                                    <div class="">{{item.title}} ({{item.category_name}})</div>
                                 </div>
                                 <div class="card-actions">
                                     <paper-button on-click="editItemFromList">Edit</paper-button>
-                                    <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
+                                    <paper-button on-click="ConfirmItemRemovalFromList">Delete</paper-button>
                                 </div>
                             </paper-card>
                         </template>
@@ -25000,7 +25003,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                                 </div>
                                 <div class="card-actions">
                                     <paper-button on-click="editItemFromList">Edit</paper-button>
-                                    <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
+                                    <paper-button on-click="ConfirmItemRemovalFromList">Delete</paper-button>
                                 </div>
                             </paper-card>
                         </template>
@@ -25041,7 +25044,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
 
             <neon-animatable id="delete-item">
                 <paper-card class="item-form" heading="Delete item">
-                    <item-form is-delete-form="" item_id="" on-submit-success="listCategoryItems"></item-form>
+                    <item-form is-delete-form="" item="{{itemDetail}}" on-submit-success="listCategoryItems"></item-form>
                 </paper-card>
             </neon-animatable>
         </neon-animated-pages>
@@ -25128,6 +25131,10 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                                 this.listCategoryItems.bind(this));
             },
 
+            setLatestItems: function(latestItemsService) {
+                this.latestItems = latestItemsService.target.lastResponse;
+            },
+
             moveToLatestItems: function () {
                 this.$.pages.select(this.LATEST_ITEMS);
             },
@@ -25163,6 +25170,12 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
             showEditItemForm: function () {
                 this.$.pages.select(this.EDIT_ITEM);
             },
+
+            ConfirmItemRemovalFromList: function () {
+                this.itemDetail = event.model.item;
+                this.$.pages.select(this.DELETE_ITEM);
+            },
+
             ConfirmItemRemoval: function () {
                 this.$.pages.select(this.DELETE_ITEM);
             }
@@ -25272,28 +25285,38 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 }
             },
 
-            submitForm: function() {
+            submitForm: function () {
                 this.$.form.submit();
             },
 
-            setupRequest: function(){
-                if(this.isCreateForm) {
+            setupRequest: function () {
+                if (this.isCreateForm) {
                     this.$.form.request.body = this.item;
                 }
-                if(this.isEditForm) {
+                if (this.isEditForm) {
                     this.$.form.request.method = 'PUT';
                     this.$.form.request.body = this.item;
                 }
-                if(this.isDeleteForm) {
+                if (this.isDeleteForm) {
                     this.$.form.request.method = 'DELETE';
                 }
             },
 
             //TODO: show JSON server error messages
             notifySubmitSuccess: function () {
-                this.fire('submit-success',
-                        {'category': this.$.form.$$('#categoryDropdownMenu').value});
-                this.item = {};
+                var category;
+                if (this.isDeleteForm) {
+                    if (this.item.category_name) {
+                        category = this.item.category_name
+                    } else {
+                        var sideBar = document.querySelector('#sideBarCategoryMenu');
+                        category = sideBar.$.menu.selectedItem.textContent.trim();
+                    }
+                } else {
+                    category = this.$.form.$$('#categoryDropdownMenu').value;
+                }
+                this.fire('submit-success', {'category': category});
+                this.item = {'category_id': 0};
             }
         })
     </script>
@@ -25302,9 +25325,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
 
 
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">
-    </script><script src="https://apis.google.com/js/client:platform.js?onload=start" async="" defer="">
-    </script></div>
+</div>
 
 <paper-toolbar class="tall" role="toolbar">
     <div id="middleBar" class="toolbar-tools paper-toolbar">

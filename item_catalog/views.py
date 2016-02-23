@@ -3,13 +3,14 @@
 
 from item_catalog import app, db, TEMPLATES
 from item_catalog import models
+from sqlalchemy import desc
 from flask import send_from_directory
 from flask_restful import Resource, fields
 from flask_restful import marshal_with, reqparse
 
 
 @app.route('/')
-def catalog_app():
+def catalog_web_app():
     return send_from_directory(TEMPLATES, 'catalog.html')
 
 
@@ -55,7 +56,10 @@ class Item(ItemResource):
         return item, 200
 
     def delete(self, item_id):
-        pass
+        item = models.Item.query.filter_by(id=item_id).first_or_404()
+        db.session.delete(item)
+        db.session.commit()
+        return '', 204
 
 
 class CategoryItemList(Resource):
@@ -76,5 +80,29 @@ class ItemList(ItemResource):
 
 
 class LatestItems(ItemResource):
+    item_fields = {
+        'id': fields.Integer,
+        'title': fields.String,
+        'description': fields.String,
+        'category_id': fields.Integer,
+        'category_name': fields.String,
+    }
+
+    @marshal_with(item_fields)
     def get(self):
-        pass
+        print [item.createdDateTime for item in models.Item.query.order_by(
+            desc(models.Item.createdDateTime)).limit(10).all()]
+        return models.Item.query.order_by(
+            desc(models.Item.createdDateTime)).limit(10).all()
+
+
+class Catalog(Resource):
+    catalog_fields = {
+        'id': fields.Integer,
+        'name': fields.String,
+        'items': fields.List(fields.Nested(ItemResource.item_fields))
+    }
+
+    @marshal_with(catalog_fields, envelope='categories')
+    def get(self):
+        return models.Category.query.all()

@@ -26,3 +26,5 @@ api.add_resource(views.ItemList, '/items/')
 api.add_resource(views.Item, '/items/<int:item_id>')
 
 api.add_resource(views.LatestItems, '/latest_items/')
+
+api.add_resource(views.Catalog, '/catalog/')

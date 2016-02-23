@@ -103,28 +103,38 @@
                 }
             },
 
-            submitForm: function() {
+            submitForm: function () {
                 this.$.form.submit();
             },
 
-            setupRequest: function(){
-                if(this.isCreateForm) {
+            setupRequest: function () {
+                if (this.isCreateForm) {
                     this.$.form.request.body = this.item;
                 }
-                if(this.isEditForm) {
+                if (this.isEditForm) {
                     this.$.form.request.method = 'PUT';
                     this.$.form.request.body = this.item;
                 }
-                if(this.isDeleteForm) {
+                if (this.isDeleteForm) {
                     this.$.form.request.method = 'DELETE';
                 }
             },
 
             //TODO: show JSON server error messages
             notifySubmitSuccess: function () {
-                this.fire('submit-success',
-                        {'category': this.$.form.$$('#categoryDropdownMenu').value});
-                this.item = {};
+                var category;
+                if (this.isDeleteForm) {
+                    if (this.item.category_name) {
+                        category = this.item.category_name
+                    } else {
+                        var sideBar = document.querySelector('#sideBarCategoryMenu');
+                        category = sideBar.$.menu.selectedItem.textContent.trim();
+                    }
+                } else {
+                    category = this.$.form.$$('#categoryDropdownMenu').value;
+                }
+                this.fire('submit-success', {'category': category});
+                this.item = {'category_id': 0};
             }
         })
     </script>
