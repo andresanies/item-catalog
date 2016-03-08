@@ -118,6 +118,9 @@
                 if (this.isDeleteForm) {
                     this.$.form.request.method = 'DELETE';
                 }
+                this.$.form.request.headers = {
+                    'X-CSRFToken': Cookies.get('_csrf_token')
+                };
             },
 
             //TODO: show JSON server error messages

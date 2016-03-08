@@ -2437,6 +2437,7 @@ window.CustomElements.addModule(function(scope) {
     
     
     
+
     
     
 </head>
@@ -22249,6 +22250,2352 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
 })();
 
 </script>
+<script>
+(function() {
+  "use strict";
+  /**
+    `Polymer.IronJsonpLibraryBehavior` loads a jsonp library.
+    Multiple components can request same library, only one copy will load.
+
+    Some libraries require a specific global function be defined.
+    If this is the case, specify the `callbackName` property.
+
+    You should use an HTML Import to load library dependencies
+    when possible instead of using this element.
+
+    @hero hero.svg
+    @demo demo/index.html
+    @polymerBehavior
+   */
+  Polymer.IronJsonpLibraryBehavior = {
+
+    properties: {
+      /**
+       * True if library has been successfully loaded
+       */
+      libraryLoaded: {
+        type: Boolean,
+        value: false,
+        notify: true,
+        readOnly: true
+      },
+      /**
+       * Not null if library has failed to load
+       */
+      libraryErrorMessage: {
+        type: String,
+        value: null,
+        notify: true,
+        readOnly: true
+      }
+      // Following properties are to be set by behavior users
+      /**
+       * Library url. Must contain string `%%callback%%`.
+       *
+       * `%%callback%%` is a placeholder for jsonp wrapper function name
+       *
+       * Ex: https://maps.googleapis.com/maps/api/js?callback=%%callback%%
+       * @property libraryUrl
+       */
+      /**
+       * Set if library requires specific callback name.
+       * Name will be automatically generated if not set.
+       * @property callbackName
+       */
+      /**
+       * name of event to be emitted when library loads. Standard is `api-load`
+       * @property notifyEvent
+       */
+      /**
+       * event with name specified in `notifyEvent` attribute
+       * will fire upon successful load2
+       * @event `notifyEvent`
+       */
+    },
+
+    observers: [
+      '_libraryUrlChanged(libraryUrl)'
+    ],
+
+    _libraryUrlChanged: function(libraryUrl) {
+      // can't load before ready because notifyEvent might not be set
+      if (this._isReady && this.libraryUrl)
+        this._loadLibrary();
+    },
+
+    _libraryLoadCallback: function(err, result) {
+      if (err) {
+        console.warn("Library load failed:", err.message);
+        this._setLibraryErrorMessage(err.message);
+      }
+      else {
+        this._setLibraryErrorMessage(null);
+        this._setLibraryLoaded(true);
+        if (this.notifyEvent)
+          this.fire(this.notifyEvent, result);
+      }
+    },
+
+    /** loads the library, and fires this.notifyEvent upon completion */
+    _loadLibrary: function() {
+      LoaderMap.require(
+        this.libraryUrl,
+        this._libraryLoadCallback.bind(this),
+        this.callbackName
+      );
+    },
+
+    ready: function() {
+      this._isReady = true;
+      if (this.libraryUrl)
+        this._loadLibrary();
+    }
+  };
+
+  /**
+   * LoaderMap keeps track of all Loaders
+   */
+  var LoaderMap = {
+    apiMap: {}, // { hash -> Loader }
+
+    /**
+     * @param {Function} notifyCallback loaded callback fn(result)
+     * @param {string} jsonpCallbackName name of jsonpcallback. If API does not provide it, leave empty. Optional.
+     */
+    require: function(url, notifyCallback, jsonpCallbackName) {
+
+      // make hashable string form url
+      var name = this.nameFromUrl(url);
+
+      // create a loader as needed
+      if (!this.apiMap[name])
+        this.apiMap[name] = new Loader(name, url, jsonpCallbackName);
+
+      // ask for notification
+      this.apiMap[name].requestNotify(notifyCallback);
+    },
+
+    nameFromUrl: function(url) {
+      return url.replace(/[\:\/\%\?\&\.\=\-\,]/g, '_') + '_api';
+    }
+  };
+
+  /** @constructor */
+  var Loader = function(name, url, callbackName) {
+    this.notifiers = [];  // array of notifyFn [ notifyFn* ]
+
+    // callback is specified either as callback name
+    // or computed dynamically if url has callbackMacro in it
+    if (!callbackName) {
+      if (url.indexOf(this.callbackMacro) >= 0) {
+        callbackName = name + '_loaded';
+        url = url.replace(this.callbackMacro, callbackName);
+      } else {
+        this.error = new Error('IronJsonpLibraryBehavior a %%callback%% parameter is required in libraryUrl');
+        // TODO(sjmiles): we should probably fallback to listening to script.load
+        return;
+      }
+    }
+    this.callbackName = callbackName;
+    window[this.callbackName] = this.success.bind(this);
+    this.addScript(url);
+  };
+
+  Loader.prototype = {
+
+    callbackMacro: '%%callback%%',
+    loaded: false,
+
+    addScript: function(src) {
+      var script = document.createElement('script');
+      script.src = src;
+      script.onerror = this.handleError.bind(this);
+      var s = document.querySelector('script') || document.body;
+      s.parentNode.insertBefore(script, s);
+      this.script = script;
+    },
+
+    removeScript: function() {
+      if (this.script.parentNode) {
+        this.script.parentNode.removeChild(this.script);
+      }
+      this.script = null;
+    },
+
+    handleError: function(ev) {
+      this.error = new Error("Library failed to load");
+      this.notifyAll();
+      this.cleanup();
+    },
+
+    success: function() {
+      this.loaded = true;
+      this.result = Array.prototype.slice.call(arguments);
+      this.notifyAll();
+      this.cleanup();
+    },
+
+    cleanup: function() {
+      delete window[this.callbackName];
+    },
+
+    notifyAll: function() {
+      this.notifiers.forEach( function(notifyCallback) {
+        notifyCallback(this.error, this.result);
+      }.bind(this));
+      this.notifiers = [];
+    },
+
+    requestNotify: function(notifyCallback) {
+      if (this.loaded || this.error) {
+        notifyCallback( this.error, this.result);
+      } else {
+        this.notifiers.push(notifyCallback);
+      }
+    }
+  };
+})();
+</script>
+
+
+<script>
+  Polymer({
+
+    is: 'iron-jsonp-library',
+
+    behaviors: [ Polymer.IronJsonpLibraryBehavior ],
+
+    properties: {
+      /**
+       * Library url. Must contain string `%%callback%%`.
+       *
+       * `%%callback%%` is a placeholder for jsonp wrapper function name
+       *
+       * Ex: https://maps.googleapis.com/maps/api/js?callback=%%callback%%
+       */
+      libraryUrl: String,
+      /**
+       * Set if library requires specific callback name.
+       * Name will be automatically generated if not set.
+       */
+      callbackName: String,
+      /**
+       * event with name specified in 'notifyEvent' attribute
+       * will fire upon successful load
+       */
+      notifyEvent: String
+      /**
+       * event with name specified in 'notifyEvent' attribute
+       * will fire upon successful load
+       * @event `notifyEvent`
+       */
+
+    }
+  });
+
+</script>
+<script>
+  Polymer({
+
+    is: 'google-js-api',
+
+    behaviors: [
+      Polymer.IronJsonpLibraryBehavior
+    ],
+
+    properties: {
+
+      /** @private */
+      libraryUrl: {
+        type: String,
+        value: 'https://apis.google.com/js/api.js?onload=%%callback%%'
+      },
+
+      /**
+       * Fired when the API library is loaded and available.
+       * @event js-api-load
+       */
+      /**
+       * Name of event fired when library is loaded and available.
+       */
+      notifyEvent: {
+        type: String,
+        value: 'js-api-load'
+      },
+    },
+
+    get api() {
+      return gapi;
+    }
+
+  });
+</script>
+
+<script>
+  (function() {
+
+    /**
+     * Enum of attributes to be passed through to the login API call.
+     * @readonly
+     * @enum {string}
+     */
+    var ProxyLoginAttributes = {
+      'appPackageName': 'apppackagename',
+      'clientId': 'clientid',
+      'cookiePolicy': 'cookiepolicy',
+      'requestVisibleActions': 'requestvisibleactions',
+      'hostedDomain': 'hostedDomain'
+    };
+
+    /**
+     * AuthEngine does all interactions with gapi.auth2
+     *
+     * It is tightly coupled with <google-signin-aware> element
+     * The elements configure AuthEngine.
+     * AuthEngine propagates all authentication events to all google-signin-aware elements
+     *
+     * API used: https://developers.google.com/identity/sign-in/web/reference
+     *
+     */
+    var AuthEngine = {
+
+      /**
+       * oauth2 argument, set by google-signin-aware
+       */
+      _clientId: null,
+
+      get clientId() {
+        return this._clientId;
+      },
+
+      set clientId(val) {
+        if (this._clientId && val && val != this._clientId) {
+          throw new Error('clientId cannot change. Values do not match. New: ' + val + ' Old:' + this._clientId);
+        }
+        if (val) {
+          this._clientId = val;
+          this.initAuth2();
+        }
+      },
+
+      /**
+       * oauth2 argument, set by google-signin-aware
+       */
+      _cookiePolicy: 'single_host_origin',
+
+      get cookiePolicy() {
+        return this._cookiePolicy;
+      },
+
+      set cookiePolicy(val) {
+        if (val) {
+          this._cookiePolicy = val;
+        }
+      },
+
+      /**
+       * oauth2 argument, set by google-signin-aware
+       */
+      _appPackageName: '',
+
+      get appPackageName() {
+        return this._appPackageName;
+      },
+
+      set appPackageName(val) {
+        if (this._appPackageName && val && val != this._appPackageName) {
+          throw new Error('appPackageName cannot change. Values do not match. New: ' + val + ' Old: ' + this._appPackageName);
+        }
+        if (val) {
+          this._appPackageName = val;
+        }
+      },
+
+     /**
+       * oauth2 argument, set by google-signin-aware
+       */
+      _requestVisibleActions: '',
+
+      get requestVisibleactions() {
+        return this._requestVisibleActions;
+      },
+
+      set requestVisibleactions(val) {
+        if (this._requestVisibleActions && val && val != this._requestVisibleActions) {
+          throw new Error('requestVisibleactions cannot change. Values do not match. New: ' + val + ' Old: ' + this._requestVisibleActions);
+        }
+        if (val)
+          this._requestVisibleActions = val;
+      },
+
+     /**
+       * oauth2 argument, set by google-signin-aware
+       */
+      _hostedDomain: '',
+
+      get hostedDomain() {
+        return this._hostedDomain;
+      },
+
+      set hostedDomain(val) {
+        if (this._hostedDomain && val && val != this._hostedDomain) {
+          throw new Error('hostedDomain cannot change. Values do not match. New: ' + val + ' Old: ' + this._hostedDomain);
+        }
+        if (val)
+          this._hostedDomain = val;
+      },
+
+      /** Is offline access currently enabled in the google-signin-aware element? */
+      _offline: false,
+
+      get offline() {
+        return this._offline;
+      },
+
+      set offline(val) {
+        this._offline = val;
+        this.updateAdditionalAuth();
+      },
+
+      /** Should we force a re-prompt for offline access? */
+      _offlineAlwaysPrompt: false,
+
+      get offlineAlwaysPrompt() {
+        return this._offlineAlwaysPrompt;
+      },
+
+      set offlineAlwaysPrompt(val) {
+        this._offlineAlwaysPrompt = val;
+        this.updateAdditionalAuth();
+      },
+
+      /** Have we already gotten offline access from Google during this session? */
+      offlineGranted: false,
+
+      /** <google-js-api> */
+      _apiLoader: null,
+
+      /** an array of wanted scopes. oauth2 argument */
+      _requestedScopeArray: [],
+
+      /** _requestedScopeArray as string */
+      get requestedScopes() {
+        return this._requestedScopeArray.join(' ');
+      },
+
+      /** Is user signed in? */
+      _signedIn: false,
+
+      /** Currently granted scopes */
+      _grantedScopeArray: [],
+
+      /** True if additional authorization is required */
+      _needAdditionalAuth: true,
+
+      /** True if have google+ scopes */
+      _hasPlusScopes: false,
+
+      /**
+       * array of <google-signin-aware>
+       * state changes are broadcast to them
+       */
+      signinAwares: [],
+
+      init: function() {
+        this._apiLoader = document.createElement('google-js-api');
+        this._apiLoader.addEventListener('js-api-load', this.loadAuth2.bind(this));
+      },
+
+      loadAuth2: function() {
+        gapi.load('auth2', this.initAuth2.bind(this));
+      },
+
+      initAuth2: function() {
+        if (!('gapi' in window) || !('auth2' in window.gapi) || !this.clientId) {
+          return;
+        }
+        var auth = gapi.auth2.init({
+          'client_id': this.clientId,
+          'cookie_policy': this.cookiePolicy,
+          'scope': this.requestedScopes,
+          'hosted_domain': this.hostedDomain
+        });
+
+        auth.currentUser.listen(this.handleUserUpdate.bind(this));
+
+        auth.then(
+          function success() {
+          // Let the current user listener trigger the changes.
+          },
+          function error(error) {
+            console.error(error);
+          }
+        );
+      },
+
+      handleUserUpdate: function(newPrimaryUser) {
+        // update and broadcast currentUser
+        var isSignedIn = newPrimaryUser.isSignedIn();
+        if (isSignedIn != this._signedIn) {
+          this._signedIn = isSignedIn;
+          for (var i=0; i<this.signinAwares.length; i++) {
+            this.signinAwares[i]._setSignedIn(isSignedIn);
+          }
+        }
+
+        // update granted scopes
+        this._grantedScopeArray = this.strToScopeArray(
+          newPrimaryUser.getGrantedScopes());
+        // console.log(this._grantedScopeArray);
+        this.updateAdditionalAuth();
+
+        var response = newPrimaryUser.getAuthResponse();
+        for (var i=0; i<this.signinAwares.length; i++) {
+          this.signinAwares[i]._updateScopeStatus(response);
+        }
+      },
+
+      setOfflineCode: function(code) {
+        for (var i=0; i<this.signinAwares.length; i++) {
+          this.signinAwares[i]._updateOfflineCode(code);
+        }
+      },
+
+      /** convert scope string to scope array */
+      strToScopeArray: function(str) {
+        if (!str) {
+          return [];
+        }
+        // remove extra spaces, then split
+        var scopes = str.replace(/\ +/g, ' ').trim().split(' ');
+        for (var i=0; i<scopes.length; i++) {
+          scopes[i] = scopes[i].toLowerCase();
+           // Handle scopes that will be deprecated but are still returned with their old value
+          if (scopes[i] === 'https://www.googleapis.com/auth/userinfo.profile') {
+            scopes[i] = 'profile';
+          }
+          if (scopes[i] === 'https://www.googleapis.com/auth/userinfo.email') {
+            scopes[i] = 'email';
+          }
+        }
+        // return with duplicates filtered out
+        return scopes.filter( function(value, index, self) {
+          return self.indexOf(value) === index;
+        });
+      },
+
+      /** true if scopes have google+ scopes */
+      isPlusScope: function(scope) {
+        return (scope.indexOf('/auth/games') > -1)
+            || (scope.indexOf('auth/plus.') > -1 && scope.indexOf('auth/plus.me') < 0);
+      },
+
+      /** true if scopes have been granted */
+      hasGrantedScopes: function(scopeStr) {
+        var scopes = this.strToScopeArray(scopeStr);
+        for (var i=0; i< scopes.length; i++) {
+          if (this._grantedScopeArray.indexOf(scopes[i]) === -1)
+            return false;
+        }
+        return true;
+      },
+
+      /** request additional scopes */
+      requestScopes: function(newScopeStr) {
+        var newScopes = this.strToScopeArray(newScopeStr);
+        var scopesUpdated = false;
+        for (var i=0; i<newScopes.length; i++) {
+          if (this._requestedScopeArray.indexOf(newScopes[i]) === -1) {
+            this._requestedScopeArray.push(newScopes[i]);
+            scopesUpdated = true;
+          }
+        }
+        if (scopesUpdated) {
+          this.updateAdditionalAuth();
+          this.updatePlusScopes();
+        }
+      },
+
+      /** update status of _needAdditionalAuth */
+      updateAdditionalAuth: function() {
+        var needMoreAuth = false;
+        if ((this.offlineAlwaysPrompt || this.offline ) && !this.offlineGranted) {
+          needMoreAuth = true;
+        } else {
+          for (var i=0; i<this._requestedScopeArray.length; i++) {
+            if (this._grantedScopeArray.indexOf(this._requestedScopeArray[i]) === -1) {
+              needMoreAuth = true;
+              break;
+            }
+          }
+        }
+        if (this._needAdditionalAuth != needMoreAuth) {
+          this._needAdditionalAuth = needMoreAuth;
+          // broadcast new value
+          for (var i=0; i<this.signinAwares.length; i++) {
+            this.signinAwares[i]._setNeedAdditionalAuth(needMoreAuth);
+          }
+        }
+      },
+
+      updatePlusScopes: function() {
+        var hasPlusScopes = false;
+        for (var i = 0; i < this._requestedScopeArray.length; i++) {
+          if (this.isPlusScope(this._requestedScopeArray[i])) {
+            hasPlusScopes = true;
+            break;
+          }
+        }
+        if (this._hasPlusScopes != hasPlusScopes) {
+          this._hasPlusScopes = hasPlusScopes;
+          for (var i=0; i<this.signinAwares.length; i++) {
+            this.signinAwares[i]._setHasPlusScopes(hasPlusScopes);
+          }
+        }
+      },
+      /**
+       * attached <google-signin-aware>
+       * @param {<google-signin-aware>} aware element to add
+       */
+      attachSigninAware: function(aware) {
+        if (this.signinAwares.indexOf(aware) == -1) {
+          this.signinAwares.push(aware);
+          // Initialize aware properties
+          aware._setNeedAdditionalAuth(this._needAdditionalAuth);
+          aware._setSignedIn(this._signedIn);
+          aware._setHasPlusScopes(this._hasPlusScopes);
+        } else {
+          console.warn('signinAware attached more than once', aware);
+        }
+      },
+
+      detachSigninAware: function(aware) {
+        var index = this.signinAwares.indexOf(aware);
+        if (index != -1) {
+          this.signinAwares.splice(index, 1);
+        } else {
+          console.warn('Trying to detach unattached signin-aware');
+        }
+      },
+
+      /** returns scopes not granted */
+      getMissingScopes: function() {
+        return this._requestedScopeArray.filter( function(scope) {
+          return this._grantedScopeArray.indexOf(scope) === -1;
+        }.bind(this)).join(' ');
+      },
+
+      assertAuthInitialized: function() {
+        if (!this.clientId) {
+          throw new Error("AuthEngine not initialized. clientId has not been configured.");
+        }
+        if (!('gapi' in window)) {
+          throw new Error("AuthEngine not initialized. gapi has not loaded.");
+        }
+        if (!('auth2' in window.gapi)) {
+          throw new Error("AuthEngine not initialized. auth2 not loaded.");
+        }
+      },
+
+      /** pops up sign-in dialog */
+      signIn: function() {
+        this.assertAuthInitialized();
+        var params = {
+          'scope': this.getMissingScopes()
+        };
+
+        // Proxy specific attributes through to the signIn options.
+        Object.keys(ProxyLoginAttributes).forEach(function(key) {
+          if (this[key] && this[key] !== '') {
+            params[ProxyLoginAttributes[key]] = this[key];
+          }
+        }, this);
+
+        var promise;
+        var user = gapi.auth2.getAuthInstance().currentUser.get();
+        if (!(this.offline || this.offlineAlwaysPrompt)) {
+          if (user.getGrantedScopes()) {
+            // additional auth, skip multiple account dialog
+            promise = user.grant(params);
+          } else {
+            // initial signin
+            promise = gapi.auth2.getAuthInstance().signIn(params);
+          }
+        } else {
+          params.redirect_uri = 'postmessage';
+          if (this.offlineAlwaysPrompt) {
+            params.approval_prompt = 'force';
+          }
+
+          // Despite being documented at https://goo.gl/tiO0Bk
+          // It doesn't seem like user.grantOfflineAccess() actually exists in
+          // the current version of the Google Sign-In JS client we're using
+          // through GoogleWebComponents. So in the offline case, we will not
+          // distinguish between a first auth and an additional one.
+          promise = gapi.auth2.getAuthInstance().grantOfflineAccess(params);
+        }
+        promise.then(
+          function success(response) {
+            // If login was offline, response contains one string "code"
+            // Otherwise it contains the user object already
+            var newUser;
+            if (response.code) {
+              AuthEngine.offlineGranted = true;
+              newUser = gapi.auth2.getAuthInstance().currentUser.get();
+              AuthEngine.setOfflineCode(response.code);
+            } else {
+              newUser = response;
+            }
+
+            var authResponse = newUser.getAuthResponse();
+            // Let the current user listener trigger the changes.
+          },
+          function error(error) {
+            if ("Access denied." == error.reason) {
+              // Access denied is not an error, user hit cancel
+              return;
+            } else {
+              console.error(error);
+            }
+          }
+        );
+      },
+
+      /** signs user out */
+      signOut: function() {
+        this.assertAuthInitialized();
+        gapi.auth2.getAuthInstance().signOut().then(
+          function success() {
+          // Let the current user listener trigger the changes.
+          },
+          function error(error) {
+            console.error(error);
+          }
+        );
+      }
+    };
+
+    AuthEngine.init();
+
+/**
+`google-signin-aware` is used to enable authentication in custom elements by
+interacting with a google-signin element that needs to be present somewhere
+on the page.
+
+The `scopes` attribute allows you to specify which scope permissions are required
+(e.g do you want to allow interaction with the Google Drive API).
+
+The `google-signin-aware-success` event is triggered when a user successfully
+authenticates. If either `offline` or `offlineAlwaysPrompt` is set to true, successful
+authentication will also trigger the `google-signin-offline-success`event.
+The `google-signin-aware-signed-out` event is triggered when a user explicitly
+signs out via the google-signin element.
+
+You can bind to `isAuthorized` property to monitor authorization state.
+##### Example
+
+    <google-signin-aware scopes="https://www.googleapis.com/auth/drive"></google-signin-aware>
+
+
+##### Example with offline
+    <template id="awareness" is="dom-bind">
+      <google-signin-aware
+          scopes="https://www.googleapis.com/auth/drive"
+          offline
+          on-google-signin-aware-success="handleSignin"
+          on-google-signin-offline-success="handleOffline"></google-signin-aware>
+    <\/template>
+    <script>
+      var aware = document.querySelector('#awareness');
+      aware.handleSignin = function(response) {
+        var user = gapi.auth2.getAuthInstance().currentUser.get();
+        console.log('User name: ' + user.getBasicProfile().getName());
+      };
+      aware.handleOffline = function(response) {
+        console.log('Offline code received: ' + response.detail.code);
+        // Here you would POST response.detail.code to your webserver, which can
+        // exchange the authorization code for an access token. More info at:
+        // https://developers.google.com/identity/protocols/OAuth2WebServer
+      };
+    <\/script>
+*/
+    Polymer({
+
+      is: 'google-signin-aware',
+
+      /**
+       * Fired when this scope has been authorized
+       * @param {Object} result Authorization result.
+       * @event google-signin-aware-success
+       */
+      /**
+       * Fired when an offline authorization is successful.
+       * @param {Object} detail
+       * @param {string} detail.code The one-time authorization code from Google.
+       *     Your application can exchange this for an `access_token` and `refresh_token`
+       * @event google-signin-offline-success
+       */
+      /**
+       * Fired when this scope is not authorized
+       * @event google-signin-aware-signed-out
+       */
+      properties: {
+        /**
+         * App package name for android over-the-air installs.
+         * See the relevant [docs](https://developers.google.com/+/web/signin/android-app-installs)
+         */
+        appPackageName: {
+          type: String,
+          observer: '_appPackageNameChanged'
+        },
+        /**
+         * a Google Developers clientId reference
+         */
+        clientId: {
+          type: String,
+          observer: '_clientIdChanged'
+        },
+
+        /**
+         * The cookie policy defines what URIs have access to the session cookie
+         * remembering the user's sign-in state.
+         * See the relevant [docs](https://developers.google.com/+/web/signin/reference#determining_a_value_for_cookie_policy) for more information.
+         * @default 'single_host_origin'
+         */
+        cookiePolicy: {
+          type: String,
+          observer: '_cookiePolicyChanged'
+        },
+
+        /**
+         * The app activity types you want to write on behalf of the user
+         * (e.g http://schemas.google.com/AddActivity)
+         *
+         */
+        requestVisibleActions: {
+          type: String,
+          observer: '_requestVisibleActionsChanged'
+        },
+
+        /**
+         * The Google Apps domain to which users must belong to sign in.
+         * See the relevant [docs](https://developers.google.com/identity/sign-in/web/reference) for more information.
+         */
+        hostedDomain: {
+          type: String,
+          observer: '_hostedDomainChanged'
+        },
+
+       /**
+         * Allows for offline `access_token` retrieval during the signin process.
+         * See also `offlineAlwaysPrompt`. You only need to set one of the two; if both
+         * are set, the behavior of `offlineAlwaysPrompt` will override `offline`.
+         */
+        offline: {
+          type: Boolean,
+          value: false,
+          observer: '_offlineChanged'
+        },
+
+        /**
+          * Works the same as `offline` with the addition that it will always
+          * force a re-prompt to the user, guaranteeing that you will get a
+          * refresh_token even if the user has already granted offline access to
+          * this application. You only need to set one of `offline` or
+          * `offlineAlwaysPrompt`, not both.
+          */
+        offlineAlwaysPrompt: {
+          type: Boolean,
+          value: false,
+          observer: '_offlineAlwaysPromptChanged'
+        },
+
+       /**
+         * The scopes to provide access to (e.g https://www.googleapis.com/auth/drive)
+         * and should be space-delimited.
+         */
+        scopes: {
+          type: String,
+          value: 'profile',
+          observer: '_scopesChanged'
+        },
+
+        /**
+         * True if user is signed in
+         */
+        signedIn: {
+          type: Boolean,
+          notify: true,
+          readOnly: true
+        },
+
+        /**
+         * True if authorizations for *this* element have been granted
+         */
+        isAuthorized: {
+          type: Boolean,
+          notify: true,
+          readOnly: true,
+          value: false
+        },
+
+        /**
+         * True if additional authorizations for *any* element are required
+         */
+        needAdditionalAuth: {
+          type: Boolean,
+          notify: true,
+          readOnly: true
+        },
+
+        /**
+         * True if *any* element has google+ scopes
+         */
+        hasPlusScopes: {
+          type: Boolean,
+          value: false,
+          notify: true,
+          readOnly: true
+        }
+      },
+
+      attached: function() {
+        AuthEngine.attachSigninAware(this);
+      },
+
+      detached: function() {
+        AuthEngine.detachSigninAware(this);
+      },
+
+      /** pops up the authorization dialog */
+      signIn: function() {
+        AuthEngine.signIn();
+      },
+
+      /** signs user out */
+      signOut: function() {
+        AuthEngine.signOut();
+      },
+
+      _appPackageNameChanged: function(newName, oldName) {
+        AuthEngine.appPackageName = newName;
+      },
+
+      _clientIdChanged: function(newId, oldId) {
+        AuthEngine.clientId = newId;
+      },
+
+      _cookiePolicyChanged: function(newPolicy, oldPolicy) {
+        AuthEngine.cookiePolicy = newPolicy;
+      },
+
+      _requestVisibleActionsChanged: function(newVal, oldVal) {
+        AuthEngine.requestVisibleActions = newVal;
+      },
+
+      _hostedDomainChanged: function(newVal, oldVal) {
+        AuthEngine.hostedDomain = newVal;
+      },
+
+      _offlineChanged: function(newVal, oldVal) {
+        AuthEngine.offline = newVal;
+      },
+
+      _offlineAlwaysPromptChanged: function(newVal, oldVal) {
+        AuthEngine.offlineAlwaysPrompt = newVal;
+      },
+
+      _scopesChanged: function(newVal, oldVal) {
+        AuthEngine.requestScopes(newVal);
+        this._updateScopeStatus();
+      },
+
+      _updateScopeStatus: function(user) {
+        var newAuthorized = this.signedIn && AuthEngine.hasGrantedScopes(this.scopes);
+        if (newAuthorized !== this.isAuthorized) {
+          this._setIsAuthorized(newAuthorized);
+          if (newAuthorized) {
+            this.fire('google-signin-aware-success', user);
+          }
+          else {
+            this.fire('google-signin-aware-signed-out', user);
+          }
+        }
+      },
+
+      _updateOfflineCode: function(code) {
+        if (code) {
+          this.fire('google-signin-offline-success', {code: code});
+        }
+      }
+    });
+  })();
+</script>
+<style>
+
+  /*******************************
+            Flex Layout
+  *******************************/
+
+  html /deep/ .layout.horizontal,
+  html /deep/ .layout.horizontal-reverse,
+  html /deep/ .layout.vertical,
+  html /deep/ .layout.vertical-reverse {
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+  }
+
+  html /deep/ .layout.inline {
+    display: -ms-inline-flexbox;
+    display: -webkit-inline-flex;
+    display: inline-flex;
+  }
+
+  html /deep/ .layout.horizontal {
+    -ms-flex-direction: row;
+    -webkit-flex-direction: row;
+    flex-direction: row;
+  }
+
+  html /deep/ .layout.horizontal-reverse {
+    -ms-flex-direction: row-reverse;
+    -webkit-flex-direction: row-reverse;
+    flex-direction: row-reverse;
+  }
+
+  html /deep/ .layout.vertical {
+    -ms-flex-direction: column;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+  }
+
+  html /deep/ .layout.vertical-reverse {
+    -ms-flex-direction: column-reverse;
+    -webkit-flex-direction: column-reverse;
+    flex-direction: column-reverse;
+  }
+
+  html /deep/ .layout.wrap {
+    -ms-flex-wrap: wrap;
+    -webkit-flex-wrap: wrap;
+    flex-wrap: wrap;
+  }
+
+  html /deep/ .layout.wrap-reverse {
+    -ms-flex-wrap: wrap-reverse;
+    -webkit-flex-wrap: wrap-reverse;
+    flex-wrap: wrap-reverse;
+  }
+
+  html /deep/ .flex-auto {
+    -ms-flex: 1 1 auto;
+    -webkit-flex: 1 1 auto;
+    flex: 1 1 auto;
+  }
+
+  html /deep/ .flex-none {
+    -ms-flex: none;
+    -webkit-flex: none;
+    flex: none;
+  }
+
+  html /deep/ .flex,
+  html /deep/ .flex-1 {
+    -ms-flex: 1;
+    -webkit-flex: 1;
+    flex: 1;
+  }
+
+  html /deep/ .flex-2 {
+    -ms-flex: 2;
+    -webkit-flex: 2;
+    flex: 2;
+  }
+
+  html /deep/ .flex-3 {
+    -ms-flex: 3;
+    -webkit-flex: 3;
+    flex: 3;
+  }
+
+  html /deep/ .flex-4 {
+    -ms-flex: 4;
+    -webkit-flex: 4;
+    flex: 4;
+  }
+
+  html /deep/ .flex-5 {
+    -ms-flex: 5;
+    -webkit-flex: 5;
+    flex: 5;
+  }
+
+  html /deep/ .flex-6 {
+    -ms-flex: 6;
+    -webkit-flex: 6;
+    flex: 6;
+  }
+
+  html /deep/ .flex-7 {
+    -ms-flex: 7;
+    -webkit-flex: 7;
+    flex: 7;
+  }
+
+  html /deep/ .flex-8 {
+    -ms-flex: 8;
+    -webkit-flex: 8;
+    flex: 8;
+  }
+
+  html /deep/ .flex-9 {
+    -ms-flex: 9;
+    -webkit-flex: 9;
+    flex: 9;
+  }
+
+  html /deep/ .flex-10 {
+    -ms-flex: 10;
+    -webkit-flex: 10;
+    flex: 10;
+  }
+
+  html /deep/ .flex-11 {
+    -ms-flex: 11;
+    -webkit-flex: 11;
+    flex: 11;
+  }
+
+  html /deep/ .flex-12 {
+    -ms-flex: 12;
+    -webkit-flex: 12;
+    flex: 12;
+  }
+
+  /* alignment in cross axis */
+
+  html /deep/ .layout.start {
+    -ms-flex-align: start;
+    -webkit-align-items: flex-start;
+    align-items: flex-start;
+  }
+
+  html /deep/ .layout.center,
+  html /deep/ .layout.center-center {
+    -ms-flex-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+  }
+
+  html /deep/ .layout.end {
+    -ms-flex-align: end;
+    -webkit-align-items: flex-end;
+    align-items: flex-end;
+  }
+
+  /* alignment in main axis */
+
+  html /deep/ .layout.start-justified {
+    -ms-flex-pack: start;
+    -webkit-justify-content: flex-start;
+    justify-content: flex-start;
+  }
+
+  html /deep/ .layout.center-justified,
+  html /deep/ .layout.center-center {
+    -ms-flex-pack: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+  }
+
+  html /deep/ .layout.end-justified {
+    -ms-flex-pack: end;
+    -webkit-justify-content: flex-end;
+    justify-content: flex-end;
+  }
+
+  html /deep/ .layout.around-justified {
+    -ms-flex-pack: around;
+    -webkit-justify-content: space-around;
+    justify-content: space-around;
+  }
+
+  html /deep/ .layout.justified {
+    -ms-flex-pack: justify;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+  }
+
+  /* self alignment */
+
+  html /deep/ .self-start {
+    -ms-align-self: flex-start;
+    -webkit-align-self: flex-start;
+    align-self: flex-start;
+  }
+
+  html /deep/ .self-center {
+    -ms-align-self: center;
+    -webkit-align-self: center;
+    align-self: center;
+  }
+
+  html /deep/ .self-end {
+    -ms-align-self: flex-end;
+    -webkit-align-self: flex-end;
+    align-self: flex-end;
+  }
+
+  html /deep/ .self-stretch {
+    -ms-align-self: stretch;
+    -webkit-align-self: stretch;
+    align-self: stretch;
+  }
+
+  /*******************************
+            Other Layout
+  *******************************/
+
+  html /deep/ .block {
+    display: block;
+  }
+
+  /* IE 10 support for HTML5 hidden attr */
+  html /deep/ [hidden] {
+    display: none !important;
+  }
+
+  html /deep/ .invisible {
+    visibility: hidden !important;
+  }
+
+  html /deep/ .relative {
+    position: relative;
+  }
+
+  html /deep/ .fit {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+  body.fullbleed {
+    margin: 0;
+    height: 100vh;
+  }
+
+  html /deep/ .scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow: auto;
+  }
+
+  .fixed-bottom,
+  .fixed-left,
+  .fixed-right,
+  .fixed-top {
+    position: fixed;
+  }
+
+  html /deep/ .fixed-top {
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  html /deep/ .fixed-right {
+    top: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  html /deep/ .fixed-bottom {
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+  html /deep/ .fixed-left {
+    top: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+</style>
+<style>
+
+  /*******************************
+            Flex Layout
+  *******************************/
+
+  .layout.horizontal,
+  .layout.horizontal-reverse,
+  .layout.vertical,
+  .layout.vertical-reverse {
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+  }
+
+  .layout.inline {
+    display: -ms-inline-flexbox;
+    display: -webkit-inline-flex;
+    display: inline-flex;
+  }
+
+  .layout.horizontal {
+    -ms-flex-direction: row;
+    -webkit-flex-direction: row;
+    flex-direction: row;
+  }
+
+  .layout.horizontal-reverse {
+    -ms-flex-direction: row-reverse;
+    -webkit-flex-direction: row-reverse;
+    flex-direction: row-reverse;
+  }
+
+  .layout.vertical {
+    -ms-flex-direction: column;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+  }
+
+  .layout.vertical-reverse {
+    -ms-flex-direction: column-reverse;
+    -webkit-flex-direction: column-reverse;
+    flex-direction: column-reverse;
+  }
+
+  .layout.wrap {
+    -ms-flex-wrap: wrap;
+    -webkit-flex-wrap: wrap;
+    flex-wrap: wrap;
+  }
+
+  .layout.wrap-reverse {
+    -ms-flex-wrap: wrap-reverse;
+    -webkit-flex-wrap: wrap-reverse;
+    flex-wrap: wrap-reverse;
+  }
+
+  .flex-auto {
+    -ms-flex: 1 1 auto;
+    -webkit-flex: 1 1 auto;
+    flex: 1 1 auto;
+  }
+
+  .flex-none {
+    -ms-flex: none;
+    -webkit-flex: none;
+    flex: none;
+  }
+
+  .flex,
+  .flex-1 {
+    -ms-flex: 1;
+    -webkit-flex: 1;
+    flex: 1;
+  }
+
+  .flex-2 {
+    -ms-flex: 2;
+    -webkit-flex: 2;
+    flex: 2;
+  }
+
+  .flex-3 {
+    -ms-flex: 3;
+    -webkit-flex: 3;
+    flex: 3;
+  }
+
+  .flex-4 {
+    -ms-flex: 4;
+    -webkit-flex: 4;
+    flex: 4;
+  }
+
+  .flex-5 {
+    -ms-flex: 5;
+    -webkit-flex: 5;
+    flex: 5;
+  }
+
+  .flex-6 {
+    -ms-flex: 6;
+    -webkit-flex: 6;
+    flex: 6;
+  }
+
+  .flex-7 {
+    -ms-flex: 7;
+    -webkit-flex: 7;
+    flex: 7;
+  }
+
+  .flex-8 {
+    -ms-flex: 8;
+    -webkit-flex: 8;
+    flex: 8;
+  }
+
+  .flex-9 {
+    -ms-flex: 9;
+    -webkit-flex: 9;
+    flex: 9;
+  }
+
+  .flex-10 {
+    -ms-flex: 10;
+    -webkit-flex: 10;
+    flex: 10;
+  }
+
+  .flex-11 {
+    -ms-flex: 11;
+    -webkit-flex: 11;
+    flex: 11;
+  }
+
+  .flex-12 {
+    -ms-flex: 12;
+    -webkit-flex: 12;
+    flex: 12;
+  }
+
+  /* alignment in cross axis */
+
+  .layout.start {
+    -ms-flex-align: start;
+    -webkit-align-items: flex-start;
+    align-items: flex-start;
+  }
+
+  .layout.center,
+  .layout.center-center {
+    -ms-flex-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+  }
+
+  .layout.end {
+    -ms-flex-align: end;
+    -webkit-align-items: flex-end;
+    align-items: flex-end;
+  }
+
+  /* alignment in main axis */
+
+  .layout.start-justified {
+    -ms-flex-pack: start;
+    -webkit-justify-content: flex-start;
+    justify-content: flex-start;
+  }
+
+  .layout.center-justified,
+  .layout.center-center {
+    -ms-flex-pack: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+  }
+
+  .layout.end-justified {
+    -ms-flex-pack: end;
+    -webkit-justify-content: flex-end;
+    justify-content: flex-end;
+  }
+
+  .layout.around-justified {
+    -ms-flex-pack: around;
+    -webkit-justify-content: space-around;
+    justify-content: space-around;
+  }
+
+  .layout.justified {
+    -ms-flex-pack: justify;
+    -webkit-justify-content: space-between;
+    justify-content: space-between;
+  }
+
+  /* self alignment */
+
+  .self-start {
+    -ms-align-self: flex-start;
+    -webkit-align-self: flex-start;
+    align-self: flex-start;
+  }
+
+  .self-center {
+    -ms-align-self: center;
+    -webkit-align-self: center;
+    align-self: center;
+  }
+
+  .self-end {
+    -ms-align-self: flex-end;
+    -webkit-align-self: flex-end;
+    align-self: flex-end;
+  }
+
+  .self-stretch {
+    -ms-align-self: stretch;
+    -webkit-align-self: stretch;
+    align-self: stretch;
+  }
+
+  /*******************************
+            Other Layout
+  *******************************/
+
+  .block {
+    display: block;
+  }
+
+  /* IE 10 support for HTML5 hidden attr */
+  [hidden] {
+    display: none !important;
+  }
+
+  .invisible {
+    visibility: hidden !important;
+  }
+
+  .relative {
+    position: relative;
+  }
+
+  .fit {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+  body.fullbleed {
+    margin: 0;
+    height: 100vh;
+  }
+
+  .scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow: auto;
+  }
+
+  /* fixed position */
+
+  .fixed-bottom,
+  .fixed-left,
+  .fixed-right,
+  .fixed-top {
+    position: fixed;
+  }
+
+  .fixed-top {
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+
+  .fixed-right {
+    top: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  .fixed-bottom {
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+  .fixed-left {
+    top: 0;
+    bottom: 0;
+    left: 0;
+  }
+
+</style>
+<iron-iconset-svg name="google" size="24">
+<svg>
+  <defs>
+    <g id="google">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"></path>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path>
+      <path fill="none" d="M1 1h22v22H1z"></path>
+    </g>
+    <g id="google-plus">
+      <path fill="none" d="M0 0h24v24H0V0z"></path>
+      <path d="M23 11h-2V9h-2v2h-2v2h2v2h2v-2h2zM8 11v2.4h3.97c-.16 1.03-1.2 3.02-3.97 3.02-2.39 0-4.34-1.98-4.34-4.42S5.61 7.58 8 7.58c1.36 0 2.27.58 2.79 1.08l1.9-1.83C11.47 5.69 9.89 5 8 5c-3.87 0-7 3.13-7 7s3.13 7 7 7c4.04 0 6.72-2.84 6.72-6.84 0-.46-.05-.81-.11-1.16H8z"></path>
+      <path fill="none" d="M1 5h14v14H1z"></path>
+    </g>
+  </defs>
+</svg>
+</iron-iconset-svg>
+<dom-module id="google-signin" assetpath="bower_components/google-signin/">
+  
+  <template><style>
+:host {
+  display: inline-block;
+  position: relative;
+  box-sizing: border-box;
+  margin: 0 0.29em;
+  background: transparent;
+  text-align: center;
+  font: inherit;
+  outline: none;
+  border-radius: 3px;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  z-index: 0;
+}
+
+:host([disabled]) {
+  cursor: auto;
+  pointer-events: none;
+}
+
+:host([disabled]) #button {
+  background: #eaeaea;
+  color: #a8a8a8;
+}
+
+#button {
+  position: relative;
+  outline: none;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: 'RobotoDraft','Roboto',arial,sans-serif;
+  white-space: nowrap;
+  border-radius: inherit;
+}
+
+iron-icon {
+  width: 22px;
+  height: 22px;
+  margin: 6px;
+}
+
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+#shadow {
+  border-radius: inherit;
+}
+
+#ripple {
+  pointer-events: none;
+}
+
+.button-content {
+  outline: none;
+}
+
+.buttonText {
+  display: inline-block;
+  vertical-align: middle;
+  padding-right: .8em;
+}
+
+/*
+ * Dark Theme
+ */
+.theme-dark {
+  background: #da4336;
+  color: #ffffff;
+  border: 1px solid transparent;
+}
+
+.theme-dark.signedIn-true.additionalAuth-false {
+  background: #999;
+  border: 1px solid #888;
+}
+
+.theme-dark.signedIn-true.additionalAuth-false:hover,
+.theme-dark.signedIn-true.additionalAuth-false:focus {
+  background: #aaa;
+}
+
+:host([noink]) .theme-dark:hover,
+:host([noink]) .theme-dark:focus {
+  background: #e74b37;
+}
+
+:host([noink]) .theme-dark.signedIn-true.additionalAuth-false:hover,
+:host([noink]) .theme-dark.signedIn-true.additionalAuth-false:focus {
+  background: #aaa;
+}
+
+/*
+ * Light Theme
+ */
+.theme-light {
+  background: #fff;
+  color: #737373;
+  border: 1px solid #d9d9d9;
+}
+
+.theme-light.signedIn-true.additionalAuth-false {
+  background: #c0c0c0;
+  color: #fff;
+  border: #888 1px solid;
+}
+
+.theme-light.signedIn-true.additionalAuth-false:hover,
+.theme-light.signedIn-true.additionalAuth-false:focus {
+  background: #aaa;
+}
+
+:host([noink]) .theme-light .button-content:hover,
+:host([noink]) .theme-light:focus {
+  border: 1px solid #c0c0c0;
+}
+
+:host([noink]) .theme-light.signedIn-true.additionalAuth-false:hover,
+:host([noink]) .theme-light.signedIn-true.additionalAuth-false:focus {
+  background: #aaa;
+}
+
+/*
+ * Icon Only Width
+ */
+.width-iconOnly .buttonText {
+  display: none;
+}
+
+/*
+ * Tall Height
+ */
+.height-tall .buttonText {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.height-tall iron-icon {
+  width: 30px;
+  height: 30px;
+  margin: 8px;
+}
+
+/*
+ * Short Height
+ */
+.height-short .buttonText {
+  font-size: 11px;
+}
+
+.height-short iron-icon {
+  width: 16px;
+  height: 16px;
+  margin: 3px;
+}
+
+
+/*
+ * Branding
+ */
+
+/* Google Scopes */
+
+/* Dark Theme */
+.brand-google.theme-dark {
+  background: #4184F3;
+  color: #fff;
+  border: 1px solid #3266d5;
+}
+
+.brand-google.theme-dark .icon {
+  background: #fff;
+  border-top-left-radius: 2px;
+  border-bottom-left-radius: 2px;
+}
+
+.brand-google.theme-dark.width-iconOnly .icon {
+  border-radius: 2px;
+}
+
+.brand-google.theme-dark .buttonText {
+  padding-left: .8em;
+}
+
+.brand-google.theme-dark #ripple {
+  color: #1b39a8;
+}
+
+:host([noink]) .brand-google.theme-dark:hover,
+:host([noink]) .brand-google.theme-dark:focus {
+  background: #e74b37;
+}
+
+.brand-google.theme-light .icon {
+  color: #4184F3;
+}
+
+.brand-google.theme-light.signedIn-true.additionalAuth-false .icon {
+  color: #fff;
+}
+
+.brand-google.theme-light #ripple {
+  color: #444;
+}
+
+:host([noink]) .brand-google.theme-light:hover,
+:host([noink]) .brand-google.theme-light:focus {
+  border: 1px solid #c0c0c0;
+}
+
+.brand-google-plus.theme-dark {
+  background: #da4336;
+  color: #fff;
+  border: 1px solid transparent;
+}
+
+.brand-google-plus.theme-dark #ripple {
+  color: #c43828;
+}
+
+/* Light Theme */
+.brand-google-plus.theme-light {
+  background: #fff;
+  color: #737373;
+  border: 1px solid #d9d9d9;
+}
+
+.brand-google-plus.theme-light .icon {
+  color: #e74b37;
+}
+
+.brand-google-plus.theme-light.signedIn-true.additionalAuth-false .icon {
+  color: #fff;
+}
+
+.brand-google-plus.theme-light #ripple {
+  color: #400;
+}
+
+:host([noink]) .brand-google-plus.theme-light:hover,
+:host([noink]) .brand-google-plus.theme-light:focus {
+  border: 1px solid #c0c0c0;
+}
+
+</style>
+    <google-signin-aware id="aware" app-package-name="{{appPackageName}}" client-id="{{clientId}}" cookie-policy="{{cookiePolicy}}" request-visible-actions="{{requestVisibleActions}}" hosted-domain="{{hostedDomain}}" offline="{{offline}}" offline-always-prompt="{{offlineAlwaysPrompt}}" scopes="{{scopes}}" signed-in="{{signedIn}}" is-authorized="{{isAuthorized}}" need-additional-auth="{{needAdditionalAuth}}" has-plus-scopes="{{hasPlusScopes}}"></google-signin-aware>
+    <template is="dom-if" if="{{raised}}">
+      <paper-material id="shadow" class="fit" elevation="2" animated=""></paper-material>
+    </template>
+    <div id="button" class$="[[_computeButtonClass(height, width, theme, signedIn, _brand, needAdditionalAuth)]]">
+
+      <paper-ripple id="ripple" class="fit"></paper-ripple>
+      
+      <div relative="" layout="" horizontal="" center-center="">
+        <template is="dom-if" if="{{_computeButtonIsSignIn(signedIn, needAdditionalAuth)}}">
+          <div class="button-content signIn" tabindex="0" on-click="signIn" on-keydown="_signInKeyPress">
+            <span class="icon"><iron-icon icon="[[_brandIcon]]"></iron-icon></span>
+            <span class="buttonText">{{_labelSignin}}</span>
+          </div>
+        </template>
+        <template is="dom-if" if="{{_computeButtonIsSignOut(signedIn, needAdditionalAuth) }}">
+          <div class="button-content signOut" tabindex="0" on-click="signOut" on-keydown="_signOutKeyPress">
+            <span class="icon"><iron-icon icon="[[_brandIcon]]"></iron-icon></span>
+            <span class="buttonText">{{labelSignout}}</span>
+          </div>
+        </template>
+        <template is="dom-if" if="{{_computeButtonIsSignOutAddl(signedIn, needAdditionalAuth) }}">
+          <div class="button-content signIn" tabindex="0" on-click="signIn" on-keydown="_signInKeyPress">
+            <span class="icon"><iron-icon icon="[[_brandIcon]]"></iron-icon></span>
+            <span class="buttonText">{{labelAdditional}}</span>
+          </div>
+        </template>
+      </div>
+
+    </div>
+  </template>
+</dom-module>
+<script>
+  (function() {
+
+    /**
+     * Enum brand values.
+     * @readonly
+     * @enum {string}
+     */
+    var BrandValue = {
+        GOOGLE: 'google',
+        PLUS: 'google-plus'
+    };
+
+    /**
+     * Enum height values.
+     * @readonly
+     * @enum {string}
+     */
+    var HeightValue = {
+      SHORT: 'short',
+      STANDARD: 'standard',
+      TALL: 'tall'
+    };
+
+    /**
+     * Enum button label default values.
+     * @readonly
+     * @enum {string}
+     */
+    var LabelValue = {
+      STANDARD: 'Sign in',
+      WIDE: 'Sign in with Google',
+      WIDE_PLUS: 'Sign in with Google+'
+    };
+
+    /**
+     * Enum theme values.
+     * @readonly
+     * @enum {string}
+     */
+    var ThemeValue = {
+      LIGHT: 'light',
+      DARK: 'dark'
+    };
+
+    /**
+     * Enum width values.
+     * @readonly
+     * @enum {string}
+     */
+    var WidthValue = {
+      ICON_ONLY: 'iconOnly',
+      STANDARD: 'standard',
+      WIDE: 'wide'
+    };
+
+/**
+&lt;google-signin&gt; is used to authenticate with Google, allowing you to interact
+with other Google APIs such as Drive and Google+.
+
+<img style="max-width:100%;" src="https://cloud.githubusercontent.com/assets/107076/6791176/5c868822-d16a-11e4-918c-ec9b84a2db45.png"/>
+
+If you do not need to show the button, use companion `<google-signin-aware>` element to declare scopes, check authentication state.
+
+#### Examples
+
+    <google-signin client-id="..." scopes="https://www.googleapis.com/auth/drive"></google-signin>
+
+    <google-signin label-signin="Sign-in" client-id="..." scopes="https://www.googleapis.com/auth/drive"></google-signin>
+
+    <google-signin theme="dark" width="iconOnly" client-id="..." scopes="https://www.googleapis.com/auth/drive"></google-signin>
+
+
+#### Notes
+
+The attribute `clientId` is provided in your Google Developers Console
+(https://console.developers.google.com).
+
+The `scopes` attribute allows you to specify which scope permissions are required
+(e.g do you want to allow interaction with the Google Drive API). Many APIs also
+need to be enabled in the Google Developers Console before you can use them.
+
+The `requestVisibleActions` attribute is necessary if you want to write app
+activities (https://developers.google.com/+/web/app-activities/) on behalf of
+the user. Please note that this attribute is only valid in combination with the
+plus.login scope (https://www.googleapis.com/auth/plus.login).
+
+The `offline` attribute allows you to get an auth code which your server can
+redeem for an offline access token
+(https://developers.google.com/identity/sign-in/web/server-side-flow).
+You can also set `offline-always-prompt` instead of `offline` to ensure that your app
+will re-prompt the user for offline access and generate a working `refresh_token`
+even if they have already granted offline access to your app in the past.
+
+Use label properties to customize prompts.
+
+The button can be styled in using the `height`, `width`, and `theme` attributes.
+These attributes help you follow the Google+ Sign-In button branding guidelines
+(https://developers.google.com/+/branding-guidelines).
+
+The `google-signin-success` event is triggered when a user successfully authenticates
+and `google-signed-out` is triggered when user signs out.
+You can also use `isAuthorized` attribute to observe user's authentication state.
+
+Additional events, such as `google-signout-attempted` are
+triggered when the user attempts to sign-out and successfully signs out.
+
+When requesting offline access, the `google-signin-offline-success` event is
+triggered when the user successfully consents with offline support.
+
+The `google-signin-necessary` event is fired when scopes requested via
+google-signin-aware elements require additional user permissions.
+
+#### Testing
+
+By default, the demo accompanying this element is setup to work on localhost with
+port 8080. That said, you *should* update the `clientId` to your own one for
+any apps you're building. See the Google Developers Console
+(https://console.developers.google.com) for more info.
+
+@demo
+*/
+
+    Polymer({
+
+      is: 'google-signin',
+
+    /**
+     * Fired when user is signed in.
+     * You can use auth2 api to retrieve current user: `gapi.auth2.getAuthInstance().currentUser.get();`
+     * @event google-signin-success
+     */
+
+    /**
+     * Fired when the user is signed-out.
+     * @event google-signed-out
+     */
+
+    /**
+     * Fired if user requires additional authorization
+     * @event google-signin-necessary
+     */
+
+    /**
+     * Fired when signed in, and scope has been authorized
+     * @param {Object} result Authorization result.
+     * @event google-signin-aware-success
+     */
+
+    /**
+     * Fired when an offline authorization is successful.
+     * @event google-signin-offline-success
+     * @param {Object} detail
+     * @param {string} detail.code The one-time authorization code from Google.
+     *     Your application can exchange this for an `access_token` and `refresh_token`
+     */
+
+    /**
+     * Fired when this scope is not authorized
+     * @event google-signin-aware-signed-out
+     */
+      properties: {
+        /**
+         * App package name for android over-the-air installs.
+         * See the relevant [docs](https://developers.google.com/+/web/signin/android-app-installs)
+         */
+        appPackageName: {
+          type: String,
+          value: ''
+        },
+
+        /**
+         * The brand being used for logo and styling.
+         *
+         * @default 'google'
+         */
+        brand: {
+          type: String,
+          value: ''
+        },
+
+        /** @private */
+        _brand: {
+          type: String,
+          computed: '_computeBrand(brand, hasPlusScopes)'
+        },
+
+        /**
+         * a Google Developers clientId reference
+         */
+        clientId: {
+          type: String,
+          value: ''
+        },
+
+        /**
+         * The cookie policy defines what URIs have access to the session cookie
+         * remembering the user's sign-in state.
+         * See the relevant [docs](https://developers.google.com/+/web/signin/reference#determining_a_value_for_cookie_policy) for more information.
+         *
+         * @default 'single_host_origin'
+         */
+        cookiePolicy: {
+          type: String,
+          value: ''
+        },
+
+        /**
+         * The height to use for the button.
+         *
+         * Available options: short, standard, tall.
+         *
+         * @type {HeightValue}
+         */
+        height: {
+          type: String,
+          value: 'standard'
+        },
+
+        /**
+         * By default the ripple expands to fill the button. Set this to true to
+         * constrain the ripple to a circle within the button.
+         */
+        fill: {
+          type: Boolean,
+          value: true
+        },
+
+        /**
+         * An optional label for the button for additional permissions.
+         */
+        labelAdditional: {
+          type: String,
+          value: 'Additional permissions required'
+        },
+
+        /**
+         * An optional label for the sign-in button.
+         */
+        labelSignin: {
+          type: String,
+          value: ''
+        },
+
+        _labelSignin: {
+          type: String,
+          computed: '_computeSigninLabel(labelSignin, width, _brand)'
+        },
+
+        /**
+         * An optional label for the sign-out button.
+         */
+        labelSignout: {
+          type: String,
+          value: 'Sign out'
+        },
+
+        /**
+         * If true, the button will be styled with a shadow.
+         */
+        raised: {
+          type: Boolean,
+          value: false
+        },
+
+        /**
+         * The app activity types you want to write on behalf of the user
+         * (e.g http://schemas.google.com/AddActivity)
+         */
+        requestVisibleActions: {
+          type: String,
+          value: ''
+        },
+
+        /**
+         * The Google Apps domain to which users must belong to sign in.
+         * See the relevant [docs](https://developers.google.com/identity/sign-in/web/reference) for more information.
+         */
+        hostedDomain: {
+          type: String,
+          value: ''
+        },
+
+        /**
+         * Allows for offline `access_token` retrieval during the signin process.
+         */
+        offline: {
+          type: Boolean,
+          value: false
+        },
+
+        /**
+         * Forces a re-prompt, even if the user has already granted offline
+         * access to your application in the past. You only need one of
+         * `offline` and `offlineAlwaysPrompt`.
+         */
+        offlineAlwaysPrompt: {
+          type: Boolean,
+          value: false
+        },
+
+        /**
+         * The scopes to provide access to (e.g https://www.googleapis.com/auth/drive)
+         * and should be space-delimited.
+         */
+        scopes: {
+          type: String,
+          value: ''
+        },
+
+        /**
+         * The theme to use for the button.
+         *
+         * Available options: light, dark.
+         *
+         * @attribute theme
+         * @type {ThemeValue}
+         * @default 'dark'
+         */
+        theme: {
+          type: String,
+          value: 'light'
+        },
+
+        /**
+         * The width to use for the button.
+         *
+         * Available options: iconOnly, standard, wide.
+         *
+         * @type {WidthValue}
+         */
+        width: {
+          type: String,
+          value: 'standard'
+        },
+
+        _brandIcon: {
+          type: String,
+          computed: '_computeIcon(_brand)'
+        },
+
+        /**
+         * True if *any* element has google+ scopes
+         */
+        hasPlusScopes: {
+          type: Boolean,
+          notify: true,
+          value: false
+        },
+
+        /**
+         * True if additional authorization required globally
+         */
+        needAdditionalAuth: {
+          type: Boolean,
+          value: false
+        },
+
+        /**
+         * Is user signed in?
+         */
+        signedIn: {
+          type: Boolean,
+          notify: true,
+          value: false,
+          observer: '_observeSignedIn'
+        },
+
+        /**
+         * True if authorizations for *this* element have been granted
+         */
+        isAuthorized: {
+          type: Boolean,
+          notify: true,
+          value: false
+        }
+
+      },
+
+      _computeButtonClass: function(height, width, theme, signedIn, brand, needAdditionalAuth) {
+        return "height-" + height + " width-" + width + " theme-" + theme + " signedIn-" + signedIn + " brand-" + brand + "  additionalAuth-" + needAdditionalAuth;
+      },
+
+      _computeIcon: function(brand) {
+        return "google:" + brand;
+      },
+
+      /* Button state computed */
+      _computeButtonIsSignIn: function(signedIn, additionalAuth) {
+        return !signedIn;
+      },
+
+      _computeButtonIsSignOut: function(signedIn, additionalAuth) {
+        return signedIn && !additionalAuth;
+      },
+
+      _computeButtonIsSignOutAddl: function(signedIn, additionalAuth) {
+        return signedIn && additionalAuth;
+      },
+
+      _computeBrand: function(attrBrand, hasPlusScopes) {
+        var newBrand;
+        if (attrBrand) {
+          newBrand = attrBrand;
+        } else if (hasPlusScopes) {
+          newBrand = BrandValue.PLUS;
+        } else {
+          newBrand = BrandValue.GOOGLE;
+        };
+        return newBrand;
+      },
+
+      _observeSignedIn: function(newVal, oldVal) {
+        if (newVal) {
+          if (this.needAdditionalAuth)
+            this.fire('google-signin-necessary');
+          this.fire('google-signin-success');
+        }
+        else
+          this.fire('google-signed-out');
+      },
+
+      /**
+       * Determines the proper label based on the attributes.
+       */
+      _computeSigninLabel: function(labelSignin, width, _brand) {
+        if (labelSignin) {
+          return labelSignin;
+        } else {
+          switch(width) {
+
+            case WidthValue.WIDE:
+              return (_brand == BrandValue.PLUS) ?
+                LabelValue.WIDE_PLUS : LabelValue.WIDE;
+
+            case WidthValue.STANDARD:
+              return LabelValue.STANDARD;
+
+            case WidthValue.ICON_ONLY:
+              return '';
+
+            default:
+              console.warn("bad width value: ", width);
+              return LabelValue.STANDARD;
+          }
+        }
+      },
+
+      /** Sign in user. Opens the authorization dialog for signing in.
+       * The dialog will be blocked by a popup blocker unless called inside click handler.
+       */
+      signIn: function () {
+        this.$.aware.signIn();
+      },
+
+      _signInKeyPress: function (e) {
+        if (e.which == 13 || e.keyCode == 13 || e.which == 32 || e.keyCode == 32) {
+          e.preventDefault();
+          this.signIn();
+        }
+      },
+
+      /** Sign out the user */
+      signOut: function () {
+        this.fire('google-signout-attempted');
+        this.$.aware.signOut();
+      },
+
+      _signOutKeyPress: function (e) {
+        if (e.which == 13 || e.keyCode == 13 || e.which == 32 || e.keyCode == 32) {
+          e.preventDefault();
+          this.signOut();
+        }
+      }
+    });
+  }());
+</script>
 
 
 <dom-module id="neon-animated-pages" assetpath="bower_components/neon-animation/">
@@ -23175,594 +25522,6 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
   ];
 
 </script>
-<style>
-
-  /*******************************
-            Flex Layout
-  *******************************/
-
-  html /deep/ .layout.horizontal,
-  html /deep/ .layout.horizontal-reverse,
-  html /deep/ .layout.vertical,
-  html /deep/ .layout.vertical-reverse {
-    display: -ms-flexbox;
-    display: -webkit-flex;
-    display: flex;
-  }
-
-  html /deep/ .layout.inline {
-    display: -ms-inline-flexbox;
-    display: -webkit-inline-flex;
-    display: inline-flex;
-  }
-
-  html /deep/ .layout.horizontal {
-    -ms-flex-direction: row;
-    -webkit-flex-direction: row;
-    flex-direction: row;
-  }
-
-  html /deep/ .layout.horizontal-reverse {
-    -ms-flex-direction: row-reverse;
-    -webkit-flex-direction: row-reverse;
-    flex-direction: row-reverse;
-  }
-
-  html /deep/ .layout.vertical {
-    -ms-flex-direction: column;
-    -webkit-flex-direction: column;
-    flex-direction: column;
-  }
-
-  html /deep/ .layout.vertical-reverse {
-    -ms-flex-direction: column-reverse;
-    -webkit-flex-direction: column-reverse;
-    flex-direction: column-reverse;
-  }
-
-  html /deep/ .layout.wrap {
-    -ms-flex-wrap: wrap;
-    -webkit-flex-wrap: wrap;
-    flex-wrap: wrap;
-  }
-
-  html /deep/ .layout.wrap-reverse {
-    -ms-flex-wrap: wrap-reverse;
-    -webkit-flex-wrap: wrap-reverse;
-    flex-wrap: wrap-reverse;
-  }
-
-  html /deep/ .flex-auto {
-    -ms-flex: 1 1 auto;
-    -webkit-flex: 1 1 auto;
-    flex: 1 1 auto;
-  }
-
-  html /deep/ .flex-none {
-    -ms-flex: none;
-    -webkit-flex: none;
-    flex: none;
-  }
-
-  html /deep/ .flex,
-  html /deep/ .flex-1 {
-    -ms-flex: 1;
-    -webkit-flex: 1;
-    flex: 1;
-  }
-
-  html /deep/ .flex-2 {
-    -ms-flex: 2;
-    -webkit-flex: 2;
-    flex: 2;
-  }
-
-  html /deep/ .flex-3 {
-    -ms-flex: 3;
-    -webkit-flex: 3;
-    flex: 3;
-  }
-
-  html /deep/ .flex-4 {
-    -ms-flex: 4;
-    -webkit-flex: 4;
-    flex: 4;
-  }
-
-  html /deep/ .flex-5 {
-    -ms-flex: 5;
-    -webkit-flex: 5;
-    flex: 5;
-  }
-
-  html /deep/ .flex-6 {
-    -ms-flex: 6;
-    -webkit-flex: 6;
-    flex: 6;
-  }
-
-  html /deep/ .flex-7 {
-    -ms-flex: 7;
-    -webkit-flex: 7;
-    flex: 7;
-  }
-
-  html /deep/ .flex-8 {
-    -ms-flex: 8;
-    -webkit-flex: 8;
-    flex: 8;
-  }
-
-  html /deep/ .flex-9 {
-    -ms-flex: 9;
-    -webkit-flex: 9;
-    flex: 9;
-  }
-
-  html /deep/ .flex-10 {
-    -ms-flex: 10;
-    -webkit-flex: 10;
-    flex: 10;
-  }
-
-  html /deep/ .flex-11 {
-    -ms-flex: 11;
-    -webkit-flex: 11;
-    flex: 11;
-  }
-
-  html /deep/ .flex-12 {
-    -ms-flex: 12;
-    -webkit-flex: 12;
-    flex: 12;
-  }
-
-  /* alignment in cross axis */
-
-  html /deep/ .layout.start {
-    -ms-flex-align: start;
-    -webkit-align-items: flex-start;
-    align-items: flex-start;
-  }
-
-  html /deep/ .layout.center,
-  html /deep/ .layout.center-center {
-    -ms-flex-align: center;
-    -webkit-align-items: center;
-    align-items: center;
-  }
-
-  html /deep/ .layout.end {
-    -ms-flex-align: end;
-    -webkit-align-items: flex-end;
-    align-items: flex-end;
-  }
-
-  /* alignment in main axis */
-
-  html /deep/ .layout.start-justified {
-    -ms-flex-pack: start;
-    -webkit-justify-content: flex-start;
-    justify-content: flex-start;
-  }
-
-  html /deep/ .layout.center-justified,
-  html /deep/ .layout.center-center {
-    -ms-flex-pack: center;
-    -webkit-justify-content: center;
-    justify-content: center;
-  }
-
-  html /deep/ .layout.end-justified {
-    -ms-flex-pack: end;
-    -webkit-justify-content: flex-end;
-    justify-content: flex-end;
-  }
-
-  html /deep/ .layout.around-justified {
-    -ms-flex-pack: around;
-    -webkit-justify-content: space-around;
-    justify-content: space-around;
-  }
-
-  html /deep/ .layout.justified {
-    -ms-flex-pack: justify;
-    -webkit-justify-content: space-between;
-    justify-content: space-between;
-  }
-
-  /* self alignment */
-
-  html /deep/ .self-start {
-    -ms-align-self: flex-start;
-    -webkit-align-self: flex-start;
-    align-self: flex-start;
-  }
-
-  html /deep/ .self-center {
-    -ms-align-self: center;
-    -webkit-align-self: center;
-    align-self: center;
-  }
-
-  html /deep/ .self-end {
-    -ms-align-self: flex-end;
-    -webkit-align-self: flex-end;
-    align-self: flex-end;
-  }
-
-  html /deep/ .self-stretch {
-    -ms-align-self: stretch;
-    -webkit-align-self: stretch;
-    align-self: stretch;
-  }
-
-  /*******************************
-            Other Layout
-  *******************************/
-
-  html /deep/ .block {
-    display: block;
-  }
-
-  /* IE 10 support for HTML5 hidden attr */
-  html /deep/ [hidden] {
-    display: none !important;
-  }
-
-  html /deep/ .invisible {
-    visibility: hidden !important;
-  }
-
-  html /deep/ .relative {
-    position: relative;
-  }
-
-  html /deep/ .fit {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-  }
-
-  body.fullbleed {
-    margin: 0;
-    height: 100vh;
-  }
-
-  html /deep/ .scroll {
-    -webkit-overflow-scrolling: touch;
-    overflow: auto;
-  }
-
-  .fixed-bottom,
-  .fixed-left,
-  .fixed-right,
-  .fixed-top {
-    position: fixed;
-  }
-
-  html /deep/ .fixed-top {
-    top: 0;
-    left: 0;
-    right: 0;
-  }
-
-  html /deep/ .fixed-right {
-    top: 0;
-    right: 0;
-    bottom: 0;
-  }
-
-  html /deep/ .fixed-bottom {
-    right: 0;
-    bottom: 0;
-    left: 0;
-  }
-
-  html /deep/ .fixed-left {
-    top: 0;
-    bottom: 0;
-    left: 0;
-  }
-
-</style>
-<style>
-
-  /*******************************
-            Flex Layout
-  *******************************/
-
-  .layout.horizontal,
-  .layout.horizontal-reverse,
-  .layout.vertical,
-  .layout.vertical-reverse {
-    display: -ms-flexbox;
-    display: -webkit-flex;
-    display: flex;
-  }
-
-  .layout.inline {
-    display: -ms-inline-flexbox;
-    display: -webkit-inline-flex;
-    display: inline-flex;
-  }
-
-  .layout.horizontal {
-    -ms-flex-direction: row;
-    -webkit-flex-direction: row;
-    flex-direction: row;
-  }
-
-  .layout.horizontal-reverse {
-    -ms-flex-direction: row-reverse;
-    -webkit-flex-direction: row-reverse;
-    flex-direction: row-reverse;
-  }
-
-  .layout.vertical {
-    -ms-flex-direction: column;
-    -webkit-flex-direction: column;
-    flex-direction: column;
-  }
-
-  .layout.vertical-reverse {
-    -ms-flex-direction: column-reverse;
-    -webkit-flex-direction: column-reverse;
-    flex-direction: column-reverse;
-  }
-
-  .layout.wrap {
-    -ms-flex-wrap: wrap;
-    -webkit-flex-wrap: wrap;
-    flex-wrap: wrap;
-  }
-
-  .layout.wrap-reverse {
-    -ms-flex-wrap: wrap-reverse;
-    -webkit-flex-wrap: wrap-reverse;
-    flex-wrap: wrap-reverse;
-  }
-
-  .flex-auto {
-    -ms-flex: 1 1 auto;
-    -webkit-flex: 1 1 auto;
-    flex: 1 1 auto;
-  }
-
-  .flex-none {
-    -ms-flex: none;
-    -webkit-flex: none;
-    flex: none;
-  }
-
-  .flex,
-  .flex-1 {
-    -ms-flex: 1;
-    -webkit-flex: 1;
-    flex: 1;
-  }
-
-  .flex-2 {
-    -ms-flex: 2;
-    -webkit-flex: 2;
-    flex: 2;
-  }
-
-  .flex-3 {
-    -ms-flex: 3;
-    -webkit-flex: 3;
-    flex: 3;
-  }
-
-  .flex-4 {
-    -ms-flex: 4;
-    -webkit-flex: 4;
-    flex: 4;
-  }
-
-  .flex-5 {
-    -ms-flex: 5;
-    -webkit-flex: 5;
-    flex: 5;
-  }
-
-  .flex-6 {
-    -ms-flex: 6;
-    -webkit-flex: 6;
-    flex: 6;
-  }
-
-  .flex-7 {
-    -ms-flex: 7;
-    -webkit-flex: 7;
-    flex: 7;
-  }
-
-  .flex-8 {
-    -ms-flex: 8;
-    -webkit-flex: 8;
-    flex: 8;
-  }
-
-  .flex-9 {
-    -ms-flex: 9;
-    -webkit-flex: 9;
-    flex: 9;
-  }
-
-  .flex-10 {
-    -ms-flex: 10;
-    -webkit-flex: 10;
-    flex: 10;
-  }
-
-  .flex-11 {
-    -ms-flex: 11;
-    -webkit-flex: 11;
-    flex: 11;
-  }
-
-  .flex-12 {
-    -ms-flex: 12;
-    -webkit-flex: 12;
-    flex: 12;
-  }
-
-  /* alignment in cross axis */
-
-  .layout.start {
-    -ms-flex-align: start;
-    -webkit-align-items: flex-start;
-    align-items: flex-start;
-  }
-
-  .layout.center,
-  .layout.center-center {
-    -ms-flex-align: center;
-    -webkit-align-items: center;
-    align-items: center;
-  }
-
-  .layout.end {
-    -ms-flex-align: end;
-    -webkit-align-items: flex-end;
-    align-items: flex-end;
-  }
-
-  /* alignment in main axis */
-
-  .layout.start-justified {
-    -ms-flex-pack: start;
-    -webkit-justify-content: flex-start;
-    justify-content: flex-start;
-  }
-
-  .layout.center-justified,
-  .layout.center-center {
-    -ms-flex-pack: center;
-    -webkit-justify-content: center;
-    justify-content: center;
-  }
-
-  .layout.end-justified {
-    -ms-flex-pack: end;
-    -webkit-justify-content: flex-end;
-    justify-content: flex-end;
-  }
-
-  .layout.around-justified {
-    -ms-flex-pack: around;
-    -webkit-justify-content: space-around;
-    justify-content: space-around;
-  }
-
-  .layout.justified {
-    -ms-flex-pack: justify;
-    -webkit-justify-content: space-between;
-    justify-content: space-between;
-  }
-
-  /* self alignment */
-
-  .self-start {
-    -ms-align-self: flex-start;
-    -webkit-align-self: flex-start;
-    align-self: flex-start;
-  }
-
-  .self-center {
-    -ms-align-self: center;
-    -webkit-align-self: center;
-    align-self: center;
-  }
-
-  .self-end {
-    -ms-align-self: flex-end;
-    -webkit-align-self: flex-end;
-    align-self: flex-end;
-  }
-
-  .self-stretch {
-    -ms-align-self: stretch;
-    -webkit-align-self: stretch;
-    align-self: stretch;
-  }
-
-  /*******************************
-            Other Layout
-  *******************************/
-
-  .block {
-    display: block;
-  }
-
-  /* IE 10 support for HTML5 hidden attr */
-  [hidden] {
-    display: none !important;
-  }
-
-  .invisible {
-    visibility: hidden !important;
-  }
-
-  .relative {
-    position: relative;
-  }
-
-  .fit {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-  }
-
-  body.fullbleed {
-    margin: 0;
-    height: 100vh;
-  }
-
-  .scroll {
-    -webkit-overflow-scrolling: touch;
-    overflow: auto;
-  }
-
-  /* fixed position */
-
-  .fixed-bottom,
-  .fixed-left,
-  .fixed-right,
-  .fixed-top {
-    position: fixed;
-  }
-
-  .fixed-top {
-    top: 0;
-    left: 0;
-    right: 0;
-  }
-
-  .fixed-right {
-    top: 0;
-    right: 0;
-    bottom: 0;
-  }
-
-  .fixed-bottom {
-    right: 0;
-    bottom: 0;
-    left: 0;
-  }
-
-  .fixed-left {
-    top: 0;
-    bottom: 0;
-    left: 0;
-  }
-
-</style>
 <style is="custom-style">
 
     /*
@@ -23864,9 +25623,6 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
     /*min-height: 48px;*/
     /*padding: 0 16px;*/
     /*}*/
-
-    .main-container {
-    }
 
     paper-toolbar {
         @apply(--paper-toolbar-color);
@@ -24981,14 +26737,14 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                                 <div class="card-content" on-click="showItemDetail">
                                     <div class="">{{item.title}} ({{item.category_name}})</div>
                                 </div>
-                                <div class="card-actions">
+                                <div class="card-actions" hidden="{{item.read_only}}">
                                     <paper-button on-click="editItemFromList">Edit</paper-button>
                                     <paper-button on-click="ConfirmItemRemovalFromList">Delete</paper-button>
                                 </div>
                             </paper-card>
                         </template>
                     </div>
-                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                    <paper-fab icon="add" class="green new-item-button" hidden="" on-click="showNewItemForm"></paper-fab>
                 </paper-card>
             </neon-animatable>
 
@@ -25001,14 +26757,14 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                                 <div class="card-content" on-click="showItemDetail">
                                     <div class="">{{item.title}}</div>
                                 </div>
-                                <div class="card-actions">
+                                <div class="card-actions" hidden="{{item.read_only}}">
                                     <paper-button on-click="editItemFromList">Edit</paper-button>
                                     <paper-button on-click="ConfirmItemRemovalFromList">Delete</paper-button>
                                 </div>
                             </paper-card>
                         </template>
                     </div>
-                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                    <paper-fab icon="add" class="green new-item-button" hidden="" on-click="showNewItemForm"></paper-fab>
                 </paper-card>
             </neon-animatable>
 
@@ -25028,11 +26784,11 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                             {{itemDetail.description}}
                         </div>
                     </div>
-                    <div class="card-actions">
+                    <div class="card-actions" hidden="{{item.read_only}}">
                         <paper-button on-click="editItemFromDetail">Edit</paper-button>
                         <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                     </div>
-                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                    <paper-fab icon="add" class="green new-item-button" hidden="" on-click="showNewItemForm"></paper-fab>
                 </paper-card>
             </neon-animatable>
 
@@ -25083,28 +26839,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 latestItems: {
                     type: Array,
                     value: function () {
-                        return [
-                            {
-                                'name': 'Liga',
-                                image: '',
-                                'category': 'Soccer'
-                            },
-                            {
-                                'name': 'Barcelona',
-                                image: '',
-                                'category': 'Soccer'
-                            },
-                            {
-                                'name': 'Nacional',
-                                image: '',
-                                'category': 'Soccer'
-                            },
-                            {
-                                'name': 'Quito',
-                                image: '',
-                                'category': 'Soccer'
-                            }
-                        ]
+                        return []
                     }
                 },
                 categoryItems: {
@@ -25131,7 +26866,7 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                                 this.listCategoryItems.bind(this));
             },
 
-            setLatestItems: function(latestItemsService) {
+            setLatestItems: function (latestItemsService) {
                 this.latestItems = latestItemsService.target.lastResponse;
             },
 
@@ -25153,16 +26888,30 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 this.$.pages.select(this.CREATE_ITEM);
             },
 
+            showNewItemButtons: function () {
+                var buttons = this.querySelectorAll('.new-item-button');
+                for (var i = 0; i < buttons.length; i++) {
+                    buttons[i].removeAttribute('hidden');
+                }
+            },
+
+            hideNewItemButtons: function () {
+                var buttons = this.querySelectorAll('.new-item-button');
+                for (var i = 0; i < buttons.length; i++) {
+                    buttons[i].setAttribute('hidden', true);
+                }
+            },
+
             showItemDetail: function (event) {
                 this.itemDetail = event.model.item;
                 this.$.pages.select(this.ITEM_DETAIL);
             },
 
-            editItemFromDetail: function(event){
+            editItemFromDetail: function (event) {
                 this.showEditItemForm();
             },
 
-            editItemFromList: function(event){
+            editItemFromList: function (event) {
                 this.itemDetail = event.model.item;
                 this.showEditItemForm();
             },
@@ -25171,37 +26920,26 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 this.$.pages.select(this.EDIT_ITEM);
             },
 
-            ConfirmItemRemovalFromList: function () {
+            ConfirmItemRemovalFromList: function (event) {
                 this.itemDetail = event.model.item;
                 this.$.pages.select(this.DELETE_ITEM);
             },
 
             ConfirmItemRemoval: function () {
                 this.$.pages.select(this.DELETE_ITEM);
-            }
-        })
-    </script>
-</dom-module><dom-module id="auth-component" assetpath="elements/auth-component/">
-    <style>
-        :host{
-            width: 100%;
-        }
-        .login-subtitle{
-            font-size:smaller;
-        }
-    </style>
-    <template>
-        <div class="horizontal end-justified layout">
-            <div class="vertical layout">
-                <paper-icon-button icon="account-circle" on-click="login"></paper-icon-button>
-                <div class="login-subtitle">Login</div>
-            </div>
-        </div>
+            },
 
-    </template>
-    <script>
-        Polymer({
-            is: "auth-component"
+            updateItemsActions: function (showItemsActions) {
+                this.$.latestItemsService.generateRequest();
+                if (this.categoryItems.name) {
+                    this.$.categoryItemsService.generateRequest();
+                }
+                if (showItemsActions) {
+                    this.showNewItemButtons();
+                } else {
+                    this.hideNewItemButtons();
+                }
+            }
         })
     </script>
 </dom-module><dom-module id="item-form" assetpath="elements/item-form/">
@@ -25300,6 +27038,9 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
                 if (this.isDeleteForm) {
                     this.$.form.request.method = 'DELETE';
                 }
+                this.$.form.request.headers = {
+                    'X-CSRFToken': Cookies.get('_csrf_token')
+                };
             },
 
             //TODO: show JSON server error messages
@@ -25320,23 +27061,243 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
             }
         })
     </script>
+</dom-module><dom-module id="auth-button" assetpath="elements/auth-button/">
+    <style>
+        :host {
+            width: 100%;
+        }
+
+        .login-subtitle {
+            font-size: smaller;
+        }
+    </style>
+    <template>
+        <div class="horizontal end-justified layout">
+            <div class="vertical layout">
+                <google-signin id="gplus-sign-in" label-signin="Sign-in" theme="light" brand="google-plus" client-id="35468277966-0vjjpd7ee1pqaltsvm3snk7b6hbe4ft2.apps.googleusercontent.com" cookie-policy="single_host_origin" scopes="openid email"></google-signin>
+            </div>
+        </div>
+        <iron-ajax id="authService" method="POST" content-type="application/json" handle-as="json" on-response="updateItemsPermissions"></iron-ajax>
+    </template>
+    <script>
+        Polymer({
+            is: "auth-button",
+
+            properties: {
+                user: Object
+            },
+
+            listeners: {
+                'google-signin-offline-success': 'GooglePlusOfflineLoginHandler',
+                'google-signin-success': 'GooglePlusLoginHandler',
+                'google-signed-out': 'sendGplusLogoutRequest'
+            },
+
+            GooglePlusOfflineLoginHandler: function (event) {
+                this.sendLoginRequest('/google_plus_connect/', {
+                    'token': event.detail.code
+                });
+            },
+
+            GooglePlusLoginHandler: function (event) {
+                var user = gapi.auth2.getAuthInstance().currentUser.get();
+                this.sendLoginRequest('/google_login/', {
+                    'credentials':{
+                        'access_token': user.getAuthResponse().access_token,
+                        'id_token': {
+                            'sub': user.getId()
+                        }
+                    }
+                });
+            },
+
+            sendLoginRequest: function(url, request_body){
+                this.$.authService.url = url;
+                this.$.authService.body = request_body;
+                this.$.authService.headers = {
+                    'X-CSRFToken': Cookies.get('_csrf_token')
+                };
+                this.$.authService.method = 'POST';
+                this.$.authService.generateRequest();
+            },
+
+            sendGplusLogoutRequest: function () {
+                this.$.authService.method = 'DELETE';
+                this.$.authService.generateRequest();
+            },
+
+            updateItemsPermissions: function () {
+                var showItemsActions = this.$.authService.method == 'POST';
+                var itemList = document.querySelector('item-list');
+                itemList.updateItemsActions(showItemsActions);
+            }
+        })
+    </script>
 </dom-module>
 
 
 
 
-</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">
+    </script><script src="https://apis.google.com/js/client:platform.js?onload=start" async="" defer="">
+    </script><script>/*!
+ * JavaScript Cookie v2.1.0
+ * https://github.com/js-cookie/js-cookie
+ *
+ * Copyright 2006, 2015 Klaus Hartl & Fagner Brack
+ * Released under the MIT license
+ */
+(function (factory) {
+	if (typeof define === 'function' && define.amd) {
+		define(factory);
+	} else if (typeof exports === 'object') {
+		module.exports = factory();
+	} else {
+		var _OldCookies = window.Cookies;
+		var api = window.Cookies = factory();
+		api.noConflict = function () {
+			window.Cookies = _OldCookies;
+			return api;
+		};
+	}
+}(function () {
+	function extend () {
+		var i = 0;
+		var result = {};
+		for (; i < arguments.length; i++) {
+			var attributes = arguments[ i ];
+			for (var key in attributes) {
+				result[key] = attributes[key];
+			}
+		}
+		return result;
+	}
+
+	function init (converter) {
+		function api (key, value, attributes) {
+			var result;
+
+			// Write
+
+			if (arguments.length > 1) {
+				attributes = extend({
+					path: '/'
+				}, api.defaults, attributes);
+
+				if (typeof attributes.expires === 'number') {
+					var expires = new Date();
+					expires.setMilliseconds(expires.getMilliseconds() + attributes.expires * 864e+5);
+					attributes.expires = expires;
+				}
+
+				try {
+					result = JSON.stringify(value);
+					if (/^[\{\[]/.test(result)) {
+						value = result;
+					}
+				} catch (e) {}
+
+				if (!converter.write) {
+					value = encodeURIComponent(String(value))
+						.replace(/%(23|24|26|2B|3A|3C|3E|3D|2F|3F|40|5B|5D|5E|60|7B|7D|7C)/g, decodeURIComponent);
+				} else {
+					value = converter.write(value, key);
+				}
+
+				key = encodeURIComponent(String(key));
+				key = key.replace(/%(23|24|26|2B|5E|60|7C)/g, decodeURIComponent);
+				key = key.replace(/[\(\)]/g, escape);
+
+				return (document.cookie = [
+					key, '=', value,
+					attributes.expires && '; expires=' + attributes.expires.toUTCString(), // use expires attribute, max-age is not supported by IE
+					attributes.path    && '; path=' + attributes.path,
+					attributes.domain  && '; domain=' + attributes.domain,
+					attributes.secure ? '; secure' : ''
+				].join(''));
+			}
+
+			// Read
+
+			if (!key) {
+				result = {};
+			}
+
+			// To prevent the for loop in the first place assign an empty array
+			// in case there are no cookies at all. Also prevents odd result when
+			// calling "get()"
+			var cookies = document.cookie ? document.cookie.split('; ') : [];
+			var rdecode = /(%[0-9A-Z]{2})+/g;
+			var i = 0;
+
+			for (; i < cookies.length; i++) {
+				var parts = cookies[i].split('=');
+				var name = parts[0].replace(rdecode, decodeURIComponent);
+				var cookie = parts.slice(1).join('=');
+
+				if (cookie.charAt(0) === '"') {
+					cookie = cookie.slice(1, -1);
+				}
+
+				try {
+					cookie = converter.read ?
+						converter.read(cookie, name) : converter(cookie, name) ||
+						cookie.replace(rdecode, decodeURIComponent);
+
+					if (this.json) {
+						try {
+							cookie = JSON.parse(cookie);
+						} catch (e) {}
+					}
+
+					if (key === name) {
+						result = cookie;
+						break;
+					}
+
+					if (!key) {
+						result[name] = cookie;
+					}
+				} catch (e) {}
+			}
+
+			return result;
+		}
+
+		api.get = api.set = api;
+		api.getJSON = function () {
+			return api.apply({
+				json: true
+			}, [].slice.call(arguments));
+		};
+		api.defaults = {};
+
+		api.remove = function (key, attributes) {
+			api(key, '', extend(attributes, {
+				expires: -1
+			}));
+		};
+
+		api.withConverter = init;
+
+		return api;
+	}
+
+	return init(function () {});
+}));
+</script></div>
 
 <paper-toolbar class="tall" role="toolbar">
     <div id="middleBar" class="toolbar-tools paper-toolbar">
         <div class="title"><h2 class="main-tittle">Catalog</h2></div>
     </div>
     <div id="topBar" class="toolbar-tools paper-toolbar">
-        <auth-component></auth-component>
+        <auth-button></auth-button>
     </div>
 </paper-toolbar>
 
-<div class="horizontal layout main-container">
+<div class="horizontal layout">
     <div class="menu flex-1">
         <category-list></category-list>
     </div>
@@ -25344,5 +27305,6 @@ The `aria-labelledby` attribute will be set to the header element, if one exists
         <item-list></item-list>
     </div>
 </div>
+
 
 </body></html>

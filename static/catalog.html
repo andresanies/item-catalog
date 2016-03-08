@@ -9,11 +9,14 @@
 
     <link rel="import" href="elements/elements.html">
 
-    <!-- Google Plus API -->
-    <!--<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">-->
-    <!--</script>-->
-    <!--<script src="https://apis.google.com/js/client:platform.js?onload=start" async defer>-->
-    <!--</script>-->
+    <!--Google Plus API-->
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">
+    </script>
+    <script src="https://apis.google.com/js/client:platform.js?onload=start" async defer>
+    </script>
+
+    <!-- JavaScript Cookie lib -->
+    <script src="bower_components/js-cookie/src/js.cookie.js"></script>
 </head>
 <body unresolved>
 
@@ -22,11 +25,11 @@
         <div class="title"><h2 class="main-tittle">Catalog</h2></div>
     </div>
     <div id="topBar" class="toolbar-tools paper-toolbar">
-        <auth-component></auth-component>
+        <auth-button></auth-button>
     </div>
 </paper-toolbar>
 
-<div class="horizontal layout main-container">
+<div class="horizontal layout">
     <div class="menu flex-1">
         <category-list></category-list>
     </div>
@@ -34,5 +37,6 @@
         <item-list></item-list>
     </div>
 </div>
+
 </body>
 </html>

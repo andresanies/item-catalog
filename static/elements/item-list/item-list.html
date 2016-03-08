@@ -66,14 +66,14 @@
                                 <div class="card-content" on-click="showItemDetail">
                                     <div class="">{{item.title}} ({{item.category_name}})</div>
                                 </div>
-                                <div class="card-actions">
+                                <div class="card-actions" hidden="{{item.read_only}}">
                                     <paper-button on-click="editItemFromList">Edit</paper-button>
                                     <paper-button on-click="ConfirmItemRemovalFromList">Delete</paper-button>
                                 </div>
                             </paper-card>
                         </template>
                     </div>
-                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                    <paper-fab icon="add" class="green new-item-button" hidden on-click="showNewItemForm"></paper-fab>
                 </paper-card>
             </neon-animatable>
 
@@ -91,14 +91,14 @@
                                 <div class="card-content" on-click="showItemDetail">
                                     <div class="">{{item.title}}</div>
                                 </div>
-                                <div class="card-actions">
+                                <div class="card-actions" hidden="{{item.read_only}}">
                                     <paper-button on-click="editItemFromList">Edit</paper-button>
                                     <paper-button on-click="ConfirmItemRemovalFromList">Delete</paper-button>
                                 </div>
                             </paper-card>
                         </template>
                     </div>
-                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                    <paper-fab icon="add" class="green new-item-button" hidden on-click="showNewItemForm"></paper-fab>
                 </paper-card>
             </neon-animatable>
 
@@ -120,11 +120,11 @@
                             {{itemDetail.description}}
                         </div>
                     </div>
-                    <div class="card-actions">
+                    <div class="card-actions" hidden="{{item.read_only}}">
                         <paper-button on-click="editItemFromDetail">Edit</paper-button>
                         <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                     </div>
-                    <paper-fab icon="add" class="green" on-click="showNewItemForm"></paper-fab>
+                    <paper-fab icon="add" class="green new-item-button" hidden on-click="showNewItemForm"></paper-fab>
                 </paper-card>
             </neon-animatable>
 
@@ -181,28 +181,7 @@
                 latestItems: {
                     type: Array,
                     value: function () {
-                        return [
-                            {
-                                'name': 'Liga',
-                                image: '',
-                                'category': 'Soccer'
-                            },
-                            {
-                                'name': 'Barcelona',
-                                image: '',
-                                'category': 'Soccer'
-                            },
-                            {
-                                'name': 'Nacional',
-                                image: '',
-                                'category': 'Soccer'
-                            },
-                            {
-                                'name': 'Quito',
-                                image: '',
-                                'category': 'Soccer'
-                            }
-                        ]
+                        return []
                     }
                 },
                 categoryItems: {
@@ -229,7 +208,7 @@
                                 this.listCategoryItems.bind(this));
             },
 
-            setLatestItems: function(latestItemsService) {
+            setLatestItems: function (latestItemsService) {
                 this.latestItems = latestItemsService.target.lastResponse;
             },
 
@@ -251,16 +230,30 @@
                 this.$.pages.select(this.CREATE_ITEM);
             },
 
+            showNewItemButtons: function () {
+                var buttons = this.querySelectorAll('.new-item-button');
+                for (var i = 0; i < buttons.length; i++) {
+                    buttons[i].removeAttribute('hidden');
+                }
+            },
+
+            hideNewItemButtons: function () {
+                var buttons = this.querySelectorAll('.new-item-button');
+                for (var i = 0; i < buttons.length; i++) {
+                    buttons[i].setAttribute('hidden', true);
+                }
+            },
+
             showItemDetail: function (event) {
                 this.itemDetail = event.model.item;
                 this.$.pages.select(this.ITEM_DETAIL);
             },
 
-            editItemFromDetail: function(event){
+            editItemFromDetail: function (event) {
                 this.showEditItemForm();
             },
 
-            editItemFromList: function(event){
+            editItemFromList: function (event) {
                 this.itemDetail = event.model.item;
                 this.showEditItemForm();
             },
@@ -269,13 +262,25 @@
                 this.$.pages.select(this.EDIT_ITEM);
             },
 
-            ConfirmItemRemovalFromList: function () {
+            ConfirmItemRemovalFromList: function (event) {
                 this.itemDetail = event.model.item;
                 this.$.pages.select(this.DELETE_ITEM);
             },
 
             ConfirmItemRemoval: function () {
                 this.$.pages.select(this.DELETE_ITEM);
+            },
+
+            updateItemsActions: function (showItemsActions) {
+                this.$.latestItemsService.generateRequest();
+                if (this.categoryItems.name) {
+                    this.$.categoryItemsService.generateRequest();
+                }
+                if (showItemsActions) {
+                    this.showNewItemButtons();
+                } else {
+                    this.hideNewItemButtons();
+                }
             }
         })
     </script>

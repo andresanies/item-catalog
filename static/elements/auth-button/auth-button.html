@@ -1,0 +1,87 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+
+<dom-module id="auth-button">
+    <style>
+        :host {
+            width: 100%;
+        }
+
+        .login-subtitle {
+            font-size: smaller;
+        }
+    </style>
+    <template>
+        <div class="horizontal end-justified layout">
+            <div class="vertical layout">
+                <google-signin
+                        id="gplus-sign-in"
+                        label-signin="Sign-in"
+                        theme="light"
+                        brand="google-plus"
+                        client-id="35468277966-0vjjpd7ee1pqaltsvm3snk7b6hbe4ft2.apps.googleusercontent.com"
+                        cookie-policy="single_host_origin"
+                        scopes="openid email"></google-signin>
+            </div>
+        </div>
+        <iron-ajax
+                id="authService"
+                method="POST"
+                content-type="application/json"
+                handle-as="json"
+                on-response="updateItemsPermissions"></iron-ajax>
+    </template>
+    <script>
+        Polymer({
+            is: "auth-button",
+
+            properties: {
+                user: Object
+            },
+
+            listeners: {
+                'google-signin-offline-success': 'GooglePlusOfflineLoginHandler',
+                'google-signin-success': 'GooglePlusLoginHandler',
+                'google-signed-out': 'sendGplusLogoutRequest'
+            },
+
+            GooglePlusOfflineLoginHandler: function (event) {
+                this.sendLoginRequest('/google_plus_connect/', {
+                    'token': event.detail.code
+                });
+            },
+
+            GooglePlusLoginHandler: function (event) {
+                var user = gapi.auth2.getAuthInstance().currentUser.get();
+                this.sendLoginRequest('/google_login/', {
+                    'credentials':{
+                        'access_token': user.getAuthResponse().access_token,
+                        'id_token': {
+                            'sub': user.getId()
+                        }
+                    }
+                });
+            },
+
+            sendLoginRequest: function(url, request_body){
+                this.$.authService.url = url;
+                this.$.authService.body = request_body;
+                this.$.authService.headers = {
+                    'X-CSRFToken': Cookies.get('_csrf_token')
+                };
+                this.$.authService.method = 'POST';
+                this.$.authService.generateRequest();
+            },
+
+            sendGplusLogoutRequest: function () {
+                this.$.authService.method = 'DELETE';
+                this.$.authService.generateRequest();
+            },
+
+            updateItemsPermissions: function () {
+                var showItemsActions = this.$.authService.method == 'POST';
+                var itemList = document.querySelector('item-list');
+                itemList.updateItemsActions(showItemsActions);
+            }
+        })
+    </script>
+</dom-module>
