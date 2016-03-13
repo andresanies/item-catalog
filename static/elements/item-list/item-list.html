@@ -120,7 +120,7 @@
                             {{itemDetail.description}}
                         </div>
                     </div>
-                    <div class="card-actions" hidden="{{item.read_only}}">
+                    <div class="card-actions" hidden="{{itemDetail.read_only}}">
                         <paper-button on-click="editItemFromDetail">Edit</paper-button>
                         <paper-button on-click="ConfirmItemRemoval">Delete</paper-button>
                     </div>
@@ -227,6 +227,7 @@
             },
 
             showNewItemForm: function () {
+                this.$$('item-form[is-create-form]').resetForm();
                 this.$.pages.select(this.CREATE_ITEM);
             },
 

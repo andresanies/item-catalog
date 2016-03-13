@@ -35,14 +35,15 @@
                 <template is="dom-if" if="{{!isDeleteForm}}">
                     <paper-input
                             label="Title"
-                            name="title"
+                            id="title"
                             autofocus
                             required
+                            maxlength="80"
                             error-message="[[requiredErrorMessage]]"
                             value="{{item.title}}"></paper-input>
                     <paper-textarea
                             label="Description"
-                            name="description"
+                            id="description"
                             required
                             error-message="[[requiredErrorMessage]]"
                             value="{{item.description}}"></paper-textarea>
@@ -74,7 +75,8 @@
 
             listeners: {
                 'iron-form-presubmit': 'setupRequest',
-                'iron-form-response': 'notifySubmitSuccess'
+                'iron-form-response': 'notifySubmitSuccess',
+                'iron-form-error': 'showFormErrors'
             },
 
             properties: {
@@ -123,7 +125,6 @@
                 };
             },
 
-            //TODO: show JSON server error messages
             notifySubmitSuccess: function () {
                 var category;
                 if (this.isDeleteForm) {
@@ -137,6 +138,24 @@
                     category = this.$.form.$$('#categoryDropdownMenu').value;
                 }
                 this.fire('submit-success', {'category': category});
+                this.fire('reset-form');
+            },
+
+            showFormErrors: function (e) {
+                var errors = e.detail.request.xhr.response;
+                for (var error in errors) {
+                    var field = this.$.form.$$('#' + error);
+                    if (field) {
+                        field.errorMessage = errors[error];
+                        field.invalid = true;
+                    }
+                }
+                if (this.isDeleteForm) {
+                    this.notifySubmitSuccess();
+                }
+            },
+
+            resetForm: function(){
                 this.item = {'category_id': 0};
             }
         })
