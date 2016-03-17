@@ -11,12 +11,16 @@ from werkzeug.exceptions import HTTPException
 from requests.exceptions import HTTPError
 import requests
 
+# Response format for errors in services
 error_fields = {
     'error': fields.String
 }
 
 
 class ItemResourceParser(object):
+    """
+    Common items input parser and response formatter.
+    """
     item_fields = {
         'id': fields.Integer,
         'title': fields.String,
@@ -25,6 +29,9 @@ class ItemResourceParser(object):
     }
 
     def __init__(self):
+        """
+        Initialize the item input parser.
+        """
         self.parser = reqparse.RequestParser()
         self.parser.add_argument('title', type=str)
         self.parser.add_argument('description', type=str)
@@ -32,7 +39,18 @@ class ItemResourceParser(object):
 
 
 class ItemPermissionsMixin(object):
+    """
+    Helper permission class used for check authorization on a
+    give item for logged users.
+    """
+
     def check_current_user_permissions_on_item(self, item):
+        """
+        Make an authorization test on a given item and
+        the user on the current session.
+        If the test fails a HTTPException with 403 status code will be raised.
+        :param item: Item who is going to be checked write permissions.
+        """
         has_permissions = item.user == self.get_current_user_or_403()
         if not has_permissions:
             raise HTTPException(
@@ -40,15 +58,25 @@ class ItemPermissionsMixin(object):
                 response=403)
 
     def get_current_user_or_403(self):
+        """
+        Returns the current user on session or
+        raise an HTTPException with 403 status code.
+        :return: The user on the current session.
+        """
         user = self.get_current_user()
         if user:
             return user
         else:
             raise HTTPException(
-                description="Unauthenticated users can't perform actions on this item",
+                description="Unauthenticated users can't "
+                            "perform actions on this item",
                 response=403)
 
     def get_current_user(self):
+        """
+        Search a logged user on session using his email as a unique identifier.
+        :return: The user on the current session.
+        """
         if 'email' in session:
             user = models.User.query.filter_by(
                 email=session['email']).first()
@@ -56,7 +84,18 @@ class ItemPermissionsMixin(object):
 
 
 class ItemsPermissionsMixin(ItemPermissionsMixin):
+    """
+    Helper permission class which extends ItemPermissionsMixin
+    used for testing authorization against a list of items.
+    """
     def get_items_permissions(self, items):
+        """
+        Check permissions for the current logged user on a list of items.
+        :param items: List of items that are going to be tested
+        :return: The tested list of items with an additional
+          read_only attribute that specifies if the user
+          has write permissions over that specific item.
+        """
         for item in items:
             current_user = self.get_current_user()
             item.read_only = item.user != current_user or current_user is None
@@ -68,21 +107,43 @@ class ItemResource(ItemResourceParser, ItemPermissionsMixin, Resource):
 
 
 class GooglePlusAuthenticationMixin(Resource):
+    """
+    Google plus oauth server flow implementation.
+    """
+
+    # Response format for success case in login services.
     success = {
         'detail': fields.String
     }
 
     def user_has_google_login(self, user_id):
+        """
+        Verify if a given google user is already authenticated.
+        :param user_id: User identification use for the test.
+        :return: The user access token if the given user is authenticated.
+         or False if there is no logged user or their ids not match.
+        """
         return session.get('access_token') and (
             user_id == session.get('google_plus_id'))
 
     def get_google_user_info(self, access_token):
+        """
+        Fetch the basic user information from a google REST API.
+        :param access_token: The access token for the logged user.
+        :return: Database instance of the user.
+        """
         user_info_url = "https://www.googleapis.com/oauth2/v1/userinfo"
         params = {'access_token': access_token, 'alt': 'json'}
         user_data = requests.get(user_info_url, params=params).json()
         return self.get_user(user_data)
 
     def get_user(self, user_data):
+        """
+        Query a user by the email field in the database and if not exists
+        it will create one with the given data.
+        :param user_data: Dictionary containing username en email of the user.
+        :return: The database user instance.
+        """
         user = models.User.query.filter_by(
             email=user_data['email']).first()
         if not user:
@@ -92,20 +153,33 @@ class GooglePlusAuthenticationMixin(Resource):
         return user
 
     def save_user_to_session(self, credentials, google_plus_id):
+        """
+        Save a user data and credentials into the current session.
+        :param credentials: Credentials object with a valid access token.
+        :param google_plus_id: Google Plus identification number.
+        """
         session['access_token'] = credentials.access_token
         session['google_plus_id'] = google_plus_id
         user = self.get_google_user_info(credentials.access_token)
         session['username'] = user.name
-        # session['picture'] = user['picture']
         session['email'] = user.email
 
     def delete_user_from_session(self):
+        """
+        Erase all the data in the current session
+        associated to the logged user.
+        """
         del session['google_plus_id']
         del session['username']
         del session['email']
         del session['access_token']
 
     def validate_token(self, credentials):
+        """
+        Validate the given credentials(access token and subject)
+        against a Google oauth validation API or raise an HTTPError.
+        :param credentials: credentials object used for validation
+        """
         # Check that the access token is valid.
         result = requests.get(
             'https://www.googleapis.com/oauth2/v1/tokeninfo'
@@ -126,7 +200,13 @@ class GooglePlusAuthenticationMixin(Resource):
 
 @api.representation('application/xml')
 def output_xml(data, code, headers=None):
-    """Makes a Flask response with a XML encoded body"""
+    """
+    Makes a Flask response with a XML encoded body.
+    :param data: Payload used for generate a xml formatted response.
+    :param code: HTTP status code
+    :param headers: HTTP extra headers
+    :return: Properly xml encoded response
+    """
     resp = make_response(dumps({'response': data}), code)
     resp.headers.extend(headers or {})
     return resp

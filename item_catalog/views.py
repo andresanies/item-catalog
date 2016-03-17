@@ -18,11 +18,18 @@ from collections import namedtuple
 
 @app.route('/')
 def catalog_web_app():
+    """
+
+    :return:
+    """
     response = send_from_directory(TEMPLATES, 'catalog.html')
     return response
 
 
 class Categories(Resource):
+    """
+
+    """
     category_fields = {
         'id': fields.Integer,
         'name': fields.String,
@@ -30,16 +37,33 @@ class Categories(Resource):
 
     @marshal_with(category_fields)
     def get(self):
+        """
+
+        :return:
+        """
         return models.Category.query.all()
 
 
 class Item(utils.ItemResource):
+    """
+
+    """
     @marshal_with(utils.ItemResource.item_fields)
     def get(self, item_id):
+        """
+
+        :param item_id:
+        :return:
+        """
         return models.Item.query.filter_by(id=item_id).first_or_404()
 
     @csrf.include
     def put(self, item_id):
+        """
+
+        :param item_id:
+        :return:
+        """
         item_data = self.parser.parse_args()
         item = models.Item.query.filter_by(id=item_id).first_or_404()
 
@@ -56,10 +80,16 @@ class Item(utils.ItemResource):
             db.session.commit()
             return marshal(item, self.item_fields), 200
         except HTTPException as e:
-            return marshal({'error': e.description}, utils.error_fields), e.response
+            return marshal(
+                {'error': e.description}, utils.error_fields), e.response
 
     @csrf.include
     def delete(self, item_id):
+        """
+
+        :param item_id:
+        :return:
+        """
         item = models.Item.query.filter_by(id=item_id).first_or_404()
         try:
             self.check_current_user_permissions_on_item(item)
@@ -67,23 +97,39 @@ class Item(utils.ItemResource):
             db.session.commit()
             return '', 204
         except HTTPException as e:
-            return marshal({'error': e.description}, utils.error_fields), e.response
+            return marshal(
+                {'error': e.description}, utils.error_fields), e.response
 
 
 class CategoryItemList(utils.ItemsPermissionsMixin, utils.ItemResource):
+    """
+
+    """
     item_fields = utils.ItemResource.item_fields
     item_fields['read_only'] = fields.Boolean
 
     @marshal_with(item_fields)
     def get(self, category):
+        """
+
+        :param category:
+        :return:
+        """
         items = models.Category.query.filter_by(
             name=category).first_or_404().items.all()
         return self.get_items_permissions(items)
 
 
 class ItemList(utils.ItemResource):
+    """
+
+    """
     @csrf.include
     def post(self):
+        """
+
+        :return:
+        """
         item_data = self.parser.parse_args()
 
         if models.Item.query.filter(
@@ -97,6 +143,9 @@ class ItemList(utils.ItemResource):
 
 
 class LatestItems(utils.ItemsPermissionsMixin, utils.ItemResource):
+    """
+
+    """
     item_fields = {
         'id': fields.Integer,
         'title': fields.String,
@@ -108,12 +157,19 @@ class LatestItems(utils.ItemsPermissionsMixin, utils.ItemResource):
 
     @marshal_with(item_fields)
     def get(self):
+        """
+
+        :return:
+        """
         items = models.Item.query.order_by(
             desc(models.Item.createdDateTime)).limit(10).all()
         return self.get_items_permissions(items)
 
 
 class Catalog(Resource):
+    """
+
+    """
     item_fields = {
         'id': fields.Integer,
         'title': fields.String,
@@ -129,18 +185,32 @@ class Catalog(Resource):
 
     @marshal_with(catalog_fields, envelope='categories')
     def get(self):
+        """
+
+        :return:
+        """
         return models.Category.query.all()
 
 
 class GooglePlusAuth(utils.GooglePlusAuthenticationMixin, Resource):
+    """
+
+    """
     Credentials = namedtuple('Credentials', 'access_token id_token')
 
     def __init__(self):
+        """
+
+        """
         self.parser = reqparse.RequestParser()
         self.parser.add_argument('credentials', type=dict)
 
     @csrf.include
     def post(self):
+        """
+
+        :return:
+        """
         credentials = self.get_credentials()
         try:
             self.validate_token(credentials)
@@ -150,17 +220,29 @@ class GooglePlusAuth(utils.GooglePlusAuthenticationMixin, Resource):
             return marshal({'detail': 'User logged in successfully'},
                            self.success), 200
         except HTTPError as error:
-            message = error.response.reason if error.response else error.message
+            message = error.response.reason \
+                if error.response else error.message
             return marshal({'error': message}, utils.error_fields), 500
 
     def get_credentials(self):
+        """
+
+        :return:
+        """
         credentials_dict = self.parser.parse_args()
         return self.Credentials(**credentials_dict.credentials)
 
+    @csrf.include
     def delete(self):
+        """
+
+        :return:
+        """
         access_token = session['access_token']
         if not access_token:
-            return marshal({'error': 'Current user is not logged.'}, utils.error_fields), 401
+            return marshal(
+                {'error': 'Current user is not logged.'},
+                utils.error_fields), 401
         self.delete_user_from_session()
         return marshal({'detail': 'Successfully logout.'},
                        self.success), 200
