@@ -1,26 +1,28 @@
 # -*- coding: utf-8 -*-
 # Developer: Andres Anies <andres_anies@hotmail.com>
 
-from item_catalog import app, db, csrf, TEMPLATES
-from item_catalog import models
-from item_catalog import utils
-from sqlalchemy import desc
+from collections import namedtuple
+
 from flask import send_from_directory
 from flask import session
 from flask_restful import Resource, fields
-from flask_restful import marshal_with, reqparse
 from flask_restful import marshal
-
+from flask_restful import marshal_with, reqparse
 from requests.exceptions import HTTPError
+from sqlalchemy import desc
 from werkzeug.exceptions import HTTPException
-from collections import namedtuple
+
+from item_catalog import app, db, csrf, TEMPLATES
+from item_catalog import models
+from item_catalog import utils
 
 
 @app.route('/')
 def catalog_web_app():
     """
-
-    :return:
+    Single page app template with all elements
+    compressed in the file catalog.html.
+    :return: Single page web app with out any server side rendering.
     """
     response = send_from_directory(TEMPLATES, 'catalog.html')
     return response
@@ -28,7 +30,7 @@ def catalog_web_app():
 
 class Categories(Resource):
     """
-
+    List of registered categories.
     """
     category_fields = {
         'id': fields.Integer,
@@ -38,31 +40,33 @@ class Categories(Resource):
     @marshal_with(category_fields)
     def get(self):
         """
-
-        :return:
+        Query and return all the categories from the database.
+        :return: List of categories.
         """
         return models.Category.query.all()
 
 
 class Item(utils.ItemResource):
     """
-
+    REST like resource for retrieve, update and delete operations
+    on a single item given the items id.
     """
     @marshal_with(utils.ItemResource.item_fields)
     def get(self, item_id):
         """
-
-        :param item_id:
-        :return:
+        Search for a specific item by its id.
+        :param item_id: An identifier of the item.
+        :return: The hole item info.
         """
         return models.Item.query.filter_by(id=item_id).first_or_404()
 
     @csrf.include
     def put(self, item_id):
         """
-
-        :param item_id:
-        :return:
+        Fully update the item if the current user has write permissions
+        and validate unique fields.
+        :param item_id: An identifier of the item.
+        :return: The updated item.
         """
         item_data = self.parser.parse_args()
         item = models.Item.query.filter_by(id=item_id).first_or_404()
@@ -86,9 +90,10 @@ class Item(utils.ItemResource):
     @csrf.include
     def delete(self, item_id):
         """
-
-        :param item_id:
-        :return:
+        Erase the item if the user has the permissions.
+        :param item_id: An identifier of the item.
+        :return: HTTP 204 if the item was successfully deleted or
+          it will raise an HTTPException with 403 status code.
         """
         item = models.Item.query.filter_by(id=item_id).first_or_404()
         try:
@@ -103,7 +108,7 @@ class Item(utils.ItemResource):
 
 class CategoryItemList(utils.ItemsPermissionsMixin, utils.ItemResource):
     """
-
+    Shows a list of items filtered by a specific category.
     """
     item_fields = utils.ItemResource.item_fields
     item_fields['read_only'] = fields.Boolean
@@ -111,9 +116,11 @@ class CategoryItemList(utils.ItemsPermissionsMixin, utils.ItemResource):
     @marshal_with(item_fields)
     def get(self, category):
         """
-
-        :param category:
-        :return:
+        Search for a complete list of items related to a given category.
+        :param category: The category title used for the items search.
+        :return: A category related list of items with an addition
+          field 'read_only' that indicates whether the current user
+          has no write permission over each item.
         """
         items = models.Category.query.filter_by(
             name=category).first_or_404().items.all()
@@ -122,13 +129,14 @@ class CategoryItemList(utils.ItemsPermissionsMixin, utils.ItemResource):
 
 class ItemList(utils.ItemResource):
     """
-
+    Write only list for creating an item.
     """
     @csrf.include
     def post(self):
         """
-
-        :return:
+        Create an item from its title, description, category id
+        and the current logged in user.
+        :return: The created item with its associated id.
         """
         item_data = self.parser.parse_args()
 
@@ -144,7 +152,8 @@ class ItemList(utils.ItemResource):
 
 class LatestItems(utils.ItemsPermissionsMixin, utils.ItemResource):
     """
-
+    List the last 10 recently created items
+    sorted from the most recent to oldest.
     """
     item_fields = {
         'id': fields.Integer,
@@ -158,8 +167,8 @@ class LatestItems(utils.ItemsPermissionsMixin, utils.ItemResource):
     @marshal_with(item_fields)
     def get(self):
         """
-
-        :return:
+        List the latest 10 items.
+        :return: A list of the latest items.
         """
         items = models.Item.query.order_by(
             desc(models.Item.createdDateTime)).limit(10).all()
@@ -168,7 +177,8 @@ class LatestItems(utils.ItemsPermissionsMixin, utils.ItemResource):
 
 class Catalog(Resource):
     """
-
+    API endpoint that list all the categories and items
+    available in the web app formatted as JSON or XML.
     """
     item_fields = {
         'id': fields.Integer,
@@ -186,21 +196,21 @@ class Catalog(Resource):
     @marshal_with(catalog_fields, envelope='categories')
     def get(self):
         """
-
-        :return:
+        List all the categories and items.
+        :return: A complete list of all the categories and its related items.
         """
         return models.Category.query.all()
 
 
 class GooglePlusAuth(utils.GooglePlusAuthenticationMixin, Resource):
     """
-
+    Google Plus login implementation.
     """
     Credentials = namedtuple('Credentials', 'access_token id_token')
 
     def __init__(self):
         """
-
+        Initialize the credentials parser.
         """
         self.parser = reqparse.RequestParser()
         self.parser.add_argument('credentials', type=dict)
@@ -208,8 +218,12 @@ class GooglePlusAuth(utils.GooglePlusAuthenticationMixin, Resource):
     @csrf.include
     def post(self):
         """
-
-        :return:
+        Triggers the google plus login flow which validates the access token
+        and confirm that the user identity match the one who generated
+        the token, then if the user is not already logged in it will try to
+        log in the user into the session.
+        :return: Successful response if the user logs in without any error or
+          a formatted error message with the related status code.
         """
         credentials = self.get_credentials()
         try:
@@ -226,8 +240,10 @@ class GooglePlusAuth(utils.GooglePlusAuthenticationMixin, Resource):
 
     def get_credentials(self):
         """
-
-        :return:
+        Converts the credentials dictionary to a namedtuple so
+        its attributes can be accessed in the same way as a
+        google flow credentials object.
+        :return: Credentials named tuple used as credentials object.
         """
         credentials_dict = self.parser.parse_args()
         return self.Credentials(**credentials_dict.credentials)
@@ -235,8 +251,9 @@ class GooglePlusAuth(utils.GooglePlusAuthenticationMixin, Resource):
     @csrf.include
     def delete(self):
         """
-
-        :return:
+        Logs out a user by deleting its info from the current session.
+        :return: Successful response if the user logs out without any error or
+          a formatted error message with the related status code.
         """
         access_token = session['access_token']
         if not access_token:

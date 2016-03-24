@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # Developer: Andres Anies <andres_anies@hotmail.com>
 
+import json
+import os
+
 from flask import Flask
+from flask.ext.seasurf import SeaSurf
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
-from flask.ext.seasurf import SeaSurf
-import os
-import json
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATABASE_URI = 'sqlite:///%s/catalog.sqlite3' % BASE_DIR

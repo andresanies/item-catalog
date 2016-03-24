@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
 # Developer: Andres Anies <andres_anies@hotmail.com>
 
-from item_catalog import db
 from datetime import datetime
+
+from item_catalog import db
 
 
 class Category(db.Model):
     """
-    Categories in which each item will be classified.
+    Categories in which each items will be classified.
     """
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True)
 
     def __init__(self, name):
         """
-        Simple initializer for a category given its name.
+        Simple initializer for a category when you give a name.
         :param name: The name for the category.
         """
         self.name = name
@@ -22,8 +23,8 @@ class Category(db.Model):
 
 class User(db.Model):
     """
-    Users that login in the app for adding,
-    editing and deleting items for a given category.
+    Users who login to the app for adding,
+    editing and deleting items.
     """
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True)
@@ -31,9 +32,9 @@ class User(db.Model):
 
     def __init__(self, name, email):
         """
-        Create a database instance of user given its name and email.
+        Create a database instance when the user gives his name and email.
         :param name: First name and last name or a nickname.
-        :param email: primary email user address.
+        :param email: primary email of the user .
         """
         self.name = name
         self.email = email
@@ -41,8 +42,8 @@ class User(db.Model):
 
 class Item(db.Model):
     """
-    Items classified in categories which people can browse in the site
-    and logged user can add, edit or delete their own items.
+    Items classified in categories where people can browse
+    and logged in users can add, edit or delete their own items.
     """
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(80), unique=True)
@@ -57,13 +58,14 @@ class Item(db.Model):
 
     def __init__(self, title, description, category_id, user):
         """
-        Create an item instance for saving into the database.
-        :param title: String that represents in a unique way the item.
+        Create a database instance when the user gives an
+        item title description, and a related category.
+        :param title: String that represents the item in a unique way.
         :param description: Long text description used for describing the item.
-        :param category_id: Category identifier used for associate.
+        :param category_id: Identifier used for associate
           the item with a category.
-        :param user: The user that is creating the item which is
-          used for determine permissions on items.
+        :param user: The user who is creating an item who can have
+          write permissions on that item.
         """
         self.title = title
         self.description = description
@@ -73,7 +75,7 @@ class Item(db.Model):
     @property
     def category_name(self):
         """
-        Search for the name of the related category
-        :return: Name of the related category to the item.
+        Name of the related category of the item.
+        :return: Name of the related category of the item.
         """
         return self.category.name
