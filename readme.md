@@ -54,3 +54,15 @@ python load_fixtures.py
 ```
 python runserver.py
 ```
+
+### Testing the catalog endpoint API with curl
+
+- Test the JSON endpoint on your local host:
+```
+curl 'http://localhost:5000/catalog/' -H 'Accept: application/json'
+```
+- Test the XML endpoint on your local host:
+```
+curl 'http://localhost:5000/catalog/' -H 'Accept: application/xml'
+```
+
