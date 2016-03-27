@@ -11,9 +11,10 @@ in read only mode.
   - `__init__.py` Web app setting for Google Oauth API , Flask, SqlAlchemy, SeaSurf CSRF security, 
        REST configs and URLs mapping.
   - `models.py` Database schema definitions using SqlAlchemy model declarative style.
-  - `views.py` Service a single one page view and multiple web service for CRUD on items and getting list of categories.
+  - `views.py` Service a single one page UI and multiple web services for CRUD operations 
+       on items and get a list of previously saved categories.
   - `utils.py` Mixins and Behaviors for parsing and rendering items as well as authenticating users and authorizing 
-       write operations over items.
+       write operations over the items.
        
 - `static` HTML5 Single one page web app using web components and Polymer as web framework for building a modular 
      models based app.
@@ -42,10 +43,11 @@ pip install -r requirements.txt
 python load_fixtures.py
 ```
 
-### Obtain OAuth credentials from the Google 
+### Obtain OAuth credentials from Google 
 
 1. Check the [OAuth 2.0 Google APIs documentation]
-    (https://developers.google.com/identity/protocols/OAuth2) in order to create the Client ID & Secret for your app.
+    (https://developers.google.com/identity/protocols/OAuth2) in order to create the 
+    Client ID & Secret for the catalog app.
 2. Save your google client secret keys in a file call `client_secrets.json` in the main directory.
 
 ## Start the web server
