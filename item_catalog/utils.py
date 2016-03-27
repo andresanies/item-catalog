@@ -77,7 +77,8 @@ class ItemPermissionsMixin(object):
 
     def get_current_user(self):
         """
-        Search a logged in user in the session using his email as a unique identifier.
+        Search a logged in user in the session using his email
+        as a unique identifier.
         :return: The user on the current session.
         """
         if 'email' in session:

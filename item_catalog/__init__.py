@@ -40,4 +40,5 @@ api.add_resource(views.Catalog, '/catalog/')
 
 api.add_resource(views.GooglePlusAuth, '/google_login/')
 
-app.secret_key = 'r\x80\xd4\xc7_\x99%\x81W\xbf\xefK\xcc\xcc\xb4\xebG\x16\xa8\xe2\xd0\xb3s\x1a'
+app.secret_key = 'r\x80\xd4\xc7_\x99%\x81W\xbf\xefK\xcc\xcc\xb4\xebG\x16' \
+                 '\xa8\xe2\xd0\xb3s\x1a'

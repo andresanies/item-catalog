@@ -1,13 +1,15 @@
 # Item Catalog Web App
 
-This catalog is an application that provides a list of items within a variety of categories as well as provide 
+This application provides a list of items within a variety of categories as well as provide 
 a user registration and authentication through Google Plus OAuth API. Registered users will have the ability to post, 
-edit and delete their own items, and the non authenticated users will just browse the items and categories in read only mode.
+edit and delete their own items, and the non authenticated users will just browse the items and categories
+in read only mode.
 
 ## App Structure
 
 - `item_catalog` Python package which contains a flask REST API using SqlAlchemy as a database ORM framework.
-  - `__init__.py` Web app setting like Google API credentials, Flask, SqlAlchemy, CSRF, REST configs, and URLs mapping.
+  - `__init__.py` Web app setting for Google Oauth API , Flask, SqlAlchemy, SeaSurf CSRF security, 
+       REST configs and URLs mapping.
   - `models.py` Database schema definitions using SqlAlchemy model declarative style.
   - `views.py` Service a single one page view and multiple web service for CRUD on items and getting list of categories.
   - `utils.py` Mixins and Behaviors for parsing and rendering items as well as authenticating users and authorizing 
