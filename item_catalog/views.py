@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-# Developer: Andres Anies <andres_anies@hotmail.com>
+"""
+Service a single one page UI and multiple web services for CRUD operations
+on items and get a list of previously saved categories.
+"""
 
 from collections import namedtuple
 
@@ -15,6 +18,9 @@ from werkzeug.exceptions import HTTPException
 from item_catalog import app, db, csrf, TEMPLATES
 from item_catalog import models
 from item_catalog import utils
+
+__author__ = 'Andres Anies'
+__email__ = 'andres_anies@hotmail.com'
 
 
 @app.route('/')
@@ -51,6 +57,7 @@ class Item(utils.ItemResource):
     REST like resource for retrieve, update and delete operations
     on a single item given the items id.
     """
+
     @marshal_with(utils.ItemResource.item_fields)
     def get(self, item_id):
         """
@@ -131,6 +138,7 @@ class ItemList(utils.ItemResource):
     """
     Write only list for creating an item.
     """
+
     @csrf.include
     def post(self):
         """

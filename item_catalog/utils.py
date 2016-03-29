@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-# Developer: Andres Anies <andres_anies@hotmail.com>
+"""
+Mixins and Behaviors for parsing and rendering items as well as
+authenticating users and authorizing write operations over the items.
+"""
 import requests
 from flask import make_response
 from flask import session
@@ -11,6 +14,9 @@ from werkzeug.exceptions import HTTPException
 
 from item_catalog import GOOGLE_PLUS_CLIENT_ID
 from item_catalog import api, db, models
+
+__author__ = 'Andres Anies'
+__email__ = 'andres_anies@hotmail.com'
 
 # Response format for errors in services
 error_fields = {
@@ -92,6 +98,7 @@ class ItemsPermissionsMixin(ItemPermissionsMixin):
     Permission mixin which extends ItemPermissionsMixin
     used for testing authorization against a list of items.
     """
+
     def get_items_permissions(self, items):
         """
         Check permissions for the current logged in user on a list of items.

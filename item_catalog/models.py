@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
-# Developer: Andres Anies <andres_anies@hotmail.com>
+"""
+Database schema definitions using SqlAlchemy model declarative style.
+"""
 
 from datetime import datetime
 
 from item_catalog import db
+
+__author__ = 'Andres Anies'
+__email__ = 'andres_anies@hotmail.com'
 
 
 class Category(db.Model):

@@ -8,7 +8,7 @@ in read only mode.
 ## App Structure
 
 - `item_catalog` Python package which contains a flask REST API using SqlAlchemy as a database ORM framework.
-  - `__init__.py` Web app setting for Google Oauth API , Flask, SqlAlchemy, SeaSurf CSRF security, 
+  - `__init__.py` Web app settings for Google Oauth API , Flask, SqlAlchemy, SeaSurf CSRF security, 
        REST configs and URLs mapping.
   - `models.py` Database schema definitions using SqlAlchemy model declarative style.
   - `views.py` Service a single one page UI and multiple web services for CRUD operations 
@@ -33,36 +33,34 @@ in read only mode.
 - `Python runtime 2.7.x`: Runtime environment for python scripts. 
 - `SQLite`: Super light DBMS for storing users, items and categories.
 
-### Installing python required libraries using pip
+### Clone this repository
 ```
-pip install -r requirements.txt
-```
-
-### Setting up database schema and loading fixtures
-```
-python load_fixtures.py
+$ git clone https://github.com/andresanies/item-catalog.git
 ```
 
-### Obtain OAuth credentials from Google 
-
-1. Check the [OAuth 2.0 Google APIs documentation]
-    (https://developers.google.com/identity/protocols/OAuth2) in order to create the 
-    Client ID & Secret for the catalog app.
-2. Save your google client secret keys in a file call `client_secrets.json` in the main directory.
-
-## Start the web server
+### Install python required libraries using pip
 ```
-python runserver.py
+$ pip install -r requirements.txt
+```
+
+### Setup database schema and load fixtures
+```
+$ python load_fixtures.py
+```
+
+## Running the app
+```
+$ python runserver.py
 ```
 
 ### Testing the catalog endpoint API with curl
 
 - Test the JSON endpoint on your local host:
 ```
-curl 'http://localhost:5000/catalog/' -H 'Accept: application/json'
+$ curl 'http://localhost:5000/catalog/' -H 'Accept: application/json'
 ```
 - Test the XML endpoint on your local host:
 ```
-curl 'http://localhost:5000/catalog/' -H 'Accept: application/xml'
+$ curl 'http://localhost:5000/catalog/' -H 'Accept: application/xml'
 ```
 

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-# Developer: Andres Anies <andres_anies@hotmail.com>
+"""
+Web app settings for Google Oauth API , Flask,
+SqlAlchemy, SeaSurf CSRF security, REST configs and URLs mapping.
+"""
 
 import json
 import os
@@ -8,6 +11,9 @@ from flask import Flask
 from flask.ext.seasurf import SeaSurf
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
+
+__author__ = 'Andres Anies'
+__email__ = 'andres_anies@hotmail.com'
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATABASE_URI = 'sqlite:///%s/catalog.sqlite3' % BASE_DIR

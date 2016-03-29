@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
-# Developer: Andres Anies <andres_anies@hotmail.com>
+"""
+Setup the database schema and load a list of a defined categories.
+"""
 
 from item_catalog import db
 from item_catalog.models import Category
+
+__author__ = 'Andres Anies'
+__email__ = 'andres_anies@hotmail.com'
 
 # Create all database tables.
 db.create_all()
