@@ -263,10 +263,9 @@ class GooglePlusAuth(utils.GooglePlusAuthenticationMixin, Resource):
         :return: Successful response if the user logs out without any error or
           a formatted error message with the related status code.
         """
-        access_token = session['access_token']
-        if not access_token:
+        if 'access_token' not in session:
             return marshal(
-                {'error': 'Current user is not logged.'},
+                {'error': 'Current user is not logged in.'},
                 utils.error_fields), 401
         self.delete_user_from_session()
         return marshal({'detail': 'Successfully logout.'},

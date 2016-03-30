@@ -33,6 +33,7 @@ in read only mode.
 - `Python runtime 2.7.x`: Runtime environment for python scripts. 
 - `SQLite`: Super light DBMS for storing users, items and categories.
 
+
 ### Clone this repository
 ```
 $ git clone https://github.com/andresanies/item-catalog.git

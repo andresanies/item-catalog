@@ -74,6 +74,7 @@
 
             sendGplusLogoutRequest: function () {
                 this.$.authService.method = 'DELETE';
+                this.$.authService.body = null;
                 this.$.authService.generateRequest();
             },
 

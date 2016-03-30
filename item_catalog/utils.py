@@ -184,6 +184,7 @@ class GooglePlusAuthenticationMixin(Resource):
         del session['username']
         del session['email']
         del session['access_token']
+        session.clear()
 
     def validate_token(self, credentials):
         """
